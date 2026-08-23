@@ -377,17 +377,9 @@ describe("snabbsajt skills", () => {
     expect(existsSync(join(root, ".agents/skills/import-website"))).toBe(false);
   });
 
-  it("ships canonical assets in the CLI tarball configuration and release workflow", () => {
+  it("ships canonical assets in the CLI tarball configuration", () => {
     const packageJson = JSON.parse(readFileSync(join(repoRoot, "packages/cli/package.json"), "utf8"));
     expect(packageJson.files).toContain("dist/skills");
     expect(packageJson.scripts.build).toContain("sync-skills-assets.ts");
-    const workflow = readFileSync(join(repoRoot, ".github/workflows/release.yml"), "utf8");
-    // The workflow reads the skill list out of the manifest rather than
-    // repeating it, so assert the mechanism, not a literal list.
-    expect(workflow).toContain("require('./skills/manifest.json').skills.map(s => s.name)");
-    expect(workflow).toMatch(/sha256sum|shasum -a 256/);
-    expect(workflow).toContain(".zip");
-    expect(workflow).toContain('GITHUB_REF_NAME" = "v${version}');
-    expect(workflow).toMatch(/softprops\/action-gh-release@[0-9a-f]{40}/);
   });
 });

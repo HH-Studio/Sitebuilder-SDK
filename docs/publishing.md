@@ -1,77 +1,9 @@
 # Publishing the npm packages
 
-## Preferred path: tag it and let CI publish
+## Local-only release path
 
-Since 2026-07-27 the `Release` workflow publishes both packages with
-**npm provenance** (`npm publish --provenance`), in the correct order, after
-`bun run check` passes. Provenance is only possible from CI — the attestation is
-signed with the workflow's OIDC identity, so a package published by hand from a
-laptop can never carry one. Prefer this path.
-
-**There are two tag shapes, because there are two things to release.** They
-version independently on purpose — `minimumCliVersion` exists so the skill
-archives and the packages can move apart.
-
-```bash
-# THE PACKAGES -> npm, with provenance.
-# package.json and packages/cli/package.json must already agree, and the CLI
-# dependency range must begin at that Site Kit version.
-git tag -a v0.4.0 -m "SnabbSajt Site Kit and CLI 0.4.0"
-git push origin v0.4.0
-
-# THE SKILL ARCHIVES -> a GitHub release carrying the zips + manifest.
-# Must equal skills/manifest.json releaseVersion.
-git tag -a skills-v1.1.0 -m "SnabbSajt skills 1.1.0"
-git push origin skills-v1.1.0
-```
-
-> **Until 2026-08-08 neither of these worked, which is why 0.2.0 and 0.3.0 were
-> published by hand with no provenance.** Both jobs triggered on `v*` and each
-> demanded the tag match a *different* number — the manifest's `releaseVersion`
-> in one, the package version in the other — with `npm` needing `release` first.
-> No tag could satisfy both, so nothing ever published. Split per the app repo's
-> backlog `1810` (owner delegated the call, 2026-08-08): `release` now runs only
-> for `skills-v*`, `npm` runs only for a package tag, and `needs: release` is
-> gone. `v*` cannot match `skills-v*` — the glob is anchored and one starts
-> with `s`.
-
-A package tag verifies both package versions and the CLI's dependency range,
-then publishes site-kit followed by cli. A `skills-v*` tag builds the archives
-and creates the GitHub release. Neither waits on the other. Package publishing
-prefers npm trusted publishing for this repository and `release.yml`; the
-optional `NPM_TOKEN` fallback must be a granular write token with bypass 2FA.
-The independent `skills-v*` lane is the only path that creates a GitHub release.
-The workflow pins npm 11.5.1 because trusted publishing requires npm 11.5.1 or
-newer (and Node 22.14 or newer; the hosted Node 22 runner satisfies that floor).
-
-Each publish step queries the exact package version first. It skips only when
-npm already records a provenance attestation for that version. The retry guard
-matches its signed package digest, repository, release workflow, tag, and commit;
-missing or unexpected provenance fails closed. The release then runs npm's
-cryptographic signature audit for both installed packages. This makes a retry safe when Site Kit
-published successfully but the later CLI publish failed.
-
-Afterwards, confirm the provenance badge is present on both package pages.
-
-### Agent-safe verification before a tag exists
-
-An agent may verify either lane without creating a tag, release or npm version:
-
-```bash
-gh workflow run Release --ref main -f release_kind=packages -f version=0.4.0
-# or: release_kind=skills -f version=1.1.0
-```
-
-`workflow_dispatch` runs the same install, build and version-contract checks but
-hard-disables `npm publish` and the GitHub release action. Only a pushed tag can
-publish. A release-tag push still requires a current owner instruction naming
-the exact tag; the app repository's narrow
-`SAJT_ALLOW_SDK_RELEASE_TAG_PUSH=1` guard permits only that one stable-semver
-refspec and never authorizes a branch, force push or second tag.
-
-## Fallback: publishing by hand
-
-Use this only when CI cannot run. **A hand-published version has no provenance.**
+Remote CI is forbidden. Package checks, asset creation, npm publishing and
+release verification all run on the owner machine. No tag starts a workflow.
 
 Publish `@snabbsajt/site-kit` first. The CLI dependency range begins at the same
 Site Kit version, so reversing the order creates a broken install window.
@@ -85,13 +17,8 @@ still nobody made it.
 
 1. Sign in at <https://www.npmjs.com/> and create or join the `snabbsajt`
    organization. The account must be allowed to publish public scoped packages.
-2. Configure `HH-Studio/Sajtbuilder-SDK` and `.github/workflows/release.yml` as
-   the trusted publisher for both packages. If trusted publishing cannot be
-   enabled, create a short-lived granular write token with bypass 2FA and store
-   it as the GitHub Actions secret `NPM_TOKEN`. Legacy automation tokens no
-   longer exist.
-3. Enable two-factor authentication for writes.
-4. From this repository, authenticate with the same account:
+2. Enable two-factor authentication for writes.
+3. From this repository, authenticate with the same account:
 
    ```bash
    npm login --cache "$TMPDIR/npm-cache"
@@ -125,7 +52,7 @@ Kit dependency range starts at the release version and cannot install correctly
 until that version exists in the registry.
 
 Never put an npm token in this repository, `.npmrc`, a screenshot, or a command
-that will be committed. A future CI release should use npm trusted publishing.
+that will be committed.
 
 ## Release gate
 

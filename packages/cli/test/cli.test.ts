@@ -426,7 +426,7 @@ describe("snabbsajt site CLI", () => {
     expect(existsSync(join(siteDir, "site.json"))).toBe(false);
   });
 
-  it("derives doctor versions and CI tarball paths instead of hard-coding a release", () => {
+  it("derives doctor versions instead of hard-coding a release", () => {
     const cliPackage = JSON.parse(
       readFileSync(join(repoRoot, "packages/cli/package.json"), "utf8"),
     );
@@ -439,9 +439,7 @@ describe("snabbsajt site CLI", () => {
     });
 
     const source = readFileSync(join(repoRoot, "packages/cli/src/commands/site.ts"), "utf8");
-    const workflow = readFileSync(join(repoRoot, ".github/workflows/ci.yml"), "utf8");
     expect(source).not.toMatch(/(?:CLI|SITE_KIT)_VERSION\s*=\s*"\d/);
-    expect(workflow).not.toMatch(/snabbsajt-(?:site-kit|cli)-\d+\.\d+\.\d+\.tgz/);
   });
 
   it.runIf(process.env.SNABBSAJT_TARBALL_SMOKE === "1")(
