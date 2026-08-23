@@ -8,9 +8,24 @@ const REGISTRY_ORIGIN = "https://registry.npmjs.org";
 type PackageManifest = {
   name?: unknown;
   version?: unknown;
+  dist?: { integrity?: unknown };
 };
 
 export type PublishedPackageState = "missing" | "verified";
+
+function localPackageIntegrity(directory: string): string {
+  const output = execFileSync(
+    "npm",
+    ["pack", "--dry-run", "--json", "--cache", process.env.TMPDIR ? `${process.env.TMPDIR}/npm-cache` : "/tmp/npm-cache"],
+    { cwd: directory, encoding: "utf8" },
+  );
+  const result = JSON.parse(output) as Array<{ integrity?: unknown }>;
+  const integrity = result[0]?.integrity;
+  if (typeof integrity !== "string" || !integrity.startsWith("sha512-")) {
+    throw new Error(`npm pack did not report a sha512 integrity for ${directory}`);
+  }
+  return integrity;
+}
 
 /** `npm publish` on a private manifest prints a full, convincing tarball notice, warns
  *  that it skipped the workspace, and exits 0. That is how `@snabbsajt/site-kit@0.4.0`
@@ -67,6 +82,7 @@ export async function inspectPublishedPackage(
   name: string,
   version: string,
   fetchImpl: typeof fetch = fetch,
+  expectedIntegrity?: string,
 ): Promise<PublishedPackageState> {
   const url = `${REGISTRY_ORIGIN}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`;
   const response = await fetchImpl(url, { headers: { accept: "application/json" } });
@@ -79,6 +95,11 @@ export async function inspectPublishedPackage(
   if (manifest.name !== name || manifest.version !== version) {
     throw new Error(`npm registry returned the wrong package identity for ${name}@${version}`);
   }
+  if (!expectedIntegrity || manifest.dist?.integrity !== expectedIntegrity) {
+    throw new Error(
+      `${name}@${version} already exists with different package content; refusing to skip`,
+    );
+  }
   return "verified";
 }
 
@@ -87,6 +108,7 @@ export async function publishPackage(
   dependencies: {
     fetchImpl?: typeof fetch;
     publish?: (directory: string) => void;
+    expectedIntegrity?: string;
     sleep?: (ms: number) => Promise<void>;
   } = {},
 ): Promise<PublishedPackageState> {
@@ -105,6 +127,7 @@ export async function publishPackage(
     manifest.name,
     manifest.version,
     dependencies.fetchImpl,
+    dependencies.expectedIntegrity ?? localPackageIntegrity(directory),
   );
   if (state === "verified") {
     process.stdout.write(

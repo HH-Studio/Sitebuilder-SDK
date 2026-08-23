@@ -6,6 +6,7 @@ import { confirmPublished, inspectPublishedPackage, publishPackage } from "../sc
 
 const name = "@snabbsajt/site-kit";
 const version = "0.4.0";
+const integrity = "sha512-local-package";
 function response(status: number, body: unknown = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -80,12 +81,20 @@ describe("retry-safe package publishing", () => {
   it("skips an exact version that already exists", async () => {
     const publish = vi.fn();
     const state = await publishPackage(packageDir(), {
-      fetchImpl: vi.fn(async () => response(200, { name, version })) as unknown as typeof fetch,
+      fetchImpl: vi.fn(async () => response(200, { name, version, dist: { integrity } })) as unknown as typeof fetch,
       publish,
+      expectedIntegrity: integrity,
     });
 
     expect(state).toBe("verified");
     expect(publish).not.toHaveBeenCalled();
+  });
+
+  it("refuses an existing version with different package content", async () => {
+    await expect(publishPackage(packageDir(), {
+      fetchImpl: vi.fn(async () => response(200, { name, version, dist: { integrity: "sha512-other" } })) as unknown as typeof fetch,
+      expectedIntegrity: integrity,
+    })).rejects.toThrow(/different package content/);
   });
 
   it("fails closed on registry errors and identity mismatches", async () => {
