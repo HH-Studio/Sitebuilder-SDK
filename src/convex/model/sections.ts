@@ -636,6 +636,8 @@ export const sectionContent = v.union(
           v.literal("number"), // m² / antal / timmar - drives per-unit price
           v.literal("text"),
           v.literal("textarea"),
+          v.literal("address"),
+          v.literal("city"),
           // "When would you like this done?" - a native date field, stored and
           // submitted as the plain ISO string the browser gives us.
           //
