@@ -451,6 +451,9 @@ export const portableSiteV1 = v.object({
       order: v.optional(v.string()),
       hidden: v.optional(v.boolean()),
       anchorId: v.optional(v.string()),
+      // The exact captured block parked behind a graduated native block.
+      // Optional keeps older bundles valid.
+      capturedShape: v.optional(v.string()),
       content: v.any(), // validated on insert (see header note)
     }),
   ),

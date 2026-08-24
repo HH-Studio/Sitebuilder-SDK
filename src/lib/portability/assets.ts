@@ -6,6 +6,8 @@
 // re-uploaded assets. Mirrors the `collectAssetIds` walker in convex/publish.ts.
 // ---------------------------------------------------------------------------
 
+import { capturedAssetPlaceholderIds } from "../import/capturedAssetPlaceholder";
+
 type Json = unknown;
 
 /** Every distinct assetId referenced anywhere inside a section's content. */
@@ -16,6 +18,10 @@ export function collectAssetIds(content: Json): string[] {
 }
 
 function walk(node: Json, out: Set<string>): void {
+  if (typeof node === "string") {
+    for (const id of capturedAssetPlaceholderIds(node)) out.add(id);
+    return;
+  }
   if (Array.isArray(node)) {
     for (const n of node) walk(n, out);
     return;
