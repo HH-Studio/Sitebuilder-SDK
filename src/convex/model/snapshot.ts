@@ -101,6 +101,15 @@ export const snapshotPage = v.object({
   title: v.string(),
   order: v.number(),
   showInNav: v.boolean(),
+  // Explicit identity keeps an ordinary owner page called /terms from being
+  // treated as a generated legal document. Optional supports older snapshots.
+  legalKind: v.optional(
+    v.union(
+      v.literal("privacy"),
+      v.literal("terms"),
+      v.literal("accessibility"),
+    ),
+  ),
   // Page kind, frozen at publish. Absent => "page" (back-compat with snapshots
   // written before news/blog existed). "post" pages render under /news/<slug>,
   // are listed on /news, and are excluded from top-level page routing + nav.
@@ -274,6 +283,13 @@ export const siteSnapshot = v.object({
   // Third-party tracking ids, copied from the draft at publish. The public
   // route reads these to (consent-gate and) inject analytics/marketing tags.
   tracking: v.optional(trackingConfig),
+  // Custom head code is immutable public data. Plan entitlement is still read
+  // live, but changing the code itself needs a publish like its legal notice.
+  customHeadCode: v.optional(v.string()),
+  customHeadCodeSnapshotted: v.optional(v.boolean()),
+  // The AI-media fact the generated privacy policy was published against.
+  // Selective publishing carries it with the frozen global settings.
+  legalHasAiMedia: v.optional(v.boolean()),
   vertical: v.string(),
   // Site-level SEO defaults + the OG image url (resolved).
   seo: v.object({
