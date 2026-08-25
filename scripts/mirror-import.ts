@@ -42,6 +42,10 @@ const FILES = [
   "lib/brand.ts",
   "lib/external/localBusiness.ts",
   "lib/html/entities.ts",
+  // The importer grew a picture-card band reader whose prose helper lives
+  // here, which put this leaf on `htmlToSections.ts`'s import graph. It reads
+  // only the html helpers and `structureDetect`, both already mirrored.
+  "lib/import/bandContent.ts",
   "lib/import/designExtract.ts",
   "lib/import/htmlToSections.ts",
   "lib/import/imageCandidates.ts",
@@ -62,6 +66,10 @@ const FILES = [
   "lib/sections/layoutShape.ts",
   "lib/sections/limits.ts",
   "lib/sections/openingHours.ts",
+  // `sectionProposal.ts` started reading per-variant requirements, which put
+  // this leaf on the graph. It imports only the mirrored `registry` and the
+  // section-type model.
+  "lib/sections/variantRequirements.ts",
   "lib/socials.ts",
   "lib/tracking.ts",
   // The importer started reading the document table on 2026-08-18 (a menu

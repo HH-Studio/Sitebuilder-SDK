@@ -350,7 +350,46 @@ export function readComputedDesignInPage(
   // twice under the same heading.
   const bands: NonNullable<RawComputedSample["sections"]> = [];
   const kept: Element[] = [];
+
+  // Where a band ACTUALLY starts and ends, on a page that does not use
+  // `<section>`.
+  //
+  // The selector above is a guess on div soup, and it fails in one direction
+  // that matters: a page whose whole body is a single wrapper `div` reports ONE
+  // band, so every per-band measurement below collapses into a page median
+  // again and the composition is lost.
+  //
+  // A visitor does not read the markup, they read the BANDING: a section ends
+  // where the background changes. So a candidate whose children paint different
+  // backgrounds is not a band, it is a container OF bands, and its children are
+  // measured instead. Nothing else about the loop changes, and a page that does
+  // use `<section>` takes this path zero times.
+  const bandBackground = (el: Element): string => {
+    const bg = cs(el).backgroundColor || "";
+    // A transparent child shows its parent's paper, which is the same band.
+    return /rgba?\(0, 0, 0, 0\)|transparent/i.test(bg) ? "" : bg;
+  };
+  const expand = (el: Element): Element[] => {
+    const children = Array.from(el.children).filter((c) => visible(c));
+    if (children.length < 2 || children.length > 24) return [el];
+    const painted = children.map(bandBackground);
+    const distinct = new Set(painted.filter(Boolean));
+    // Two or more DIFFERENT painted backgrounds among the children means the
+    // parent is a container. One background (or none) means the parent is the
+    // band and its children are its content.
+    if (distinct.size < 2) return [el];
+    // Only children tall enough to be a band of their own; a 20px rule between
+    // two sections is not a section.
+    const tall = children.filter((c) => c.getBoundingClientRect().height >= 80);
+    return tall.length >= 2 ? tall : [el];
+  };
+
+  const candidates: Element[] = [];
   for (const el of Array.from(doc.querySelectorAll("section,[class*=section],main > div"))) {
+    for (const part of expand(el)) if (!candidates.includes(part)) candidates.push(part);
+  }
+
+  for (const el of candidates) {
     if (bands.length >= 24) break;
     if (kept.some((k) => k.contains(el))) continue;
     if (!visible(el)) continue;

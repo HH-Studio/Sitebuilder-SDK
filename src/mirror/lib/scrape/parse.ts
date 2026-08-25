@@ -2,6 +2,7 @@
 // Do not edit. Run `bun scripts/mirror-import.ts --sync-from-app <appRoot>`.
 
 import { decodeHtmlEntities } from "../html/entities";
+import { attributeValue, metaTag } from "../html/attributes";
 import { safeDecodeURIComponent } from "../net/url";
 import { platformForUrl, type SocialsMap } from "../socials";
 import { detectTrackingFromHtml, type TrackingConfig } from "../tracking";
@@ -118,17 +119,20 @@ function decodeEntities(s: string): string {
   return decodeHtmlEntities(s).trim();
 }
 
+/**
+ * A meta tag's content, by `name` or `property`, first key that answers.
+ *
+ * Reads the value with `attributeValue` rather than a `[^"']*` class, which
+ * ended the value at the first quote of EITHER kind: a description written
+ * `content="one of the Stockholm's most popular sushi restaurants"` arrived as
+ * "one of the Stockholm", and that truncation went straight into the imported
+ * hero's subheadline. Backlog 2643.
+ */
 function meta(html: string, keys: string[]): string | undefined {
   for (const key of keys) {
-    const k = key.replace(/[:]/g, "\\:");
-    const a = html.match(
-      new RegExp(`<meta[^>]+(?:property|name)=["']${k}["'][^>]*content=["']([^"']*)["']`, "i"),
-    );
-    if (a?.[1]) return decodeEntities(a[1]);
-    const b = html.match(
-      new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${k}["']`, "i"),
-    );
-    if (b?.[1]) return decodeEntities(b[1]);
+    const tag = metaTag(html, key);
+    const value = tag ? attributeValue(tag, "content") : undefined;
+    if (value) return value;
   }
   return undefined;
 }
@@ -1118,7 +1122,7 @@ export function extractCopyBlocks(
   const body = html.replace(/<(header|nav|footer)[\s\S]*?<\/\1>/gi, " ");
   const blocks: Array<{ heading?: string; text: string }> = [];
   let total = 0;
-  const re = /<(h[1-3])[^>]*>([\s\S]*?)<\/\1>|<p[^>]*>([\s\S]*?)<\/p>/gi;
+  const re = /<(h[1-3])[^>]*>([\s\S]*?)<\/\1>|<p\b[^>]*>([\s\S]*?)<\/p>/gi;
   let pendingHeading: string | undefined;
   let match: RegExpExecArray | null;
   const boilerplate = /cookie|copyright|©|integritet|privacy|villkor|terms/i;
@@ -1135,6 +1139,99 @@ export function extractCopyBlocks(
     total += text.length;
   }
   return blocks;
+}
+
+
+// ---------------------------------------------------------------------------
+// "Read this page for me" - the chat agent's page reader.
+//
+// `extractFromHtml` above answers a different question ("who is this business,
+// so we can pre-fill onboarding"), and it caps body copy at 8 blocks / 2400
+// characters, so it cannot answer a question ABOUT a page. This one can.
+//
+// It is an ALLOW-LIST, not a deny-list, and that is the whole security design:
+// the returned object has exactly four fields and nothing else from the source
+// document can reach the model by accident. No images, no logo, no brand
+// colour, no tracking ids, no socials, no commerce flags - not because each is
+// stripped, but because none is ever read.
+// ---------------------------------------------------------------------------
+
+/** Everything the chat agent is ever given about someone else's page. */
+export type ReadablePage = {
+  /** The document title, trimmed. */
+  title?: string;
+  /** The meta/og description, trimmed. */
+  description?: string;
+  /** `h1`-`h3` in page order, so the model can describe the page's structure. */
+  outline: Array<{ level: 1 | 2 | 3; text: string }>;
+  /** Body copy with script/style/nav/header/footer removed, hard-capped. */
+  text: string;
+};
+
+/** Body text handed to the model, in characters (~2000 tokens). The cap is a
+ *  cost control as much as a context one - the page text is re-sent with every
+ *  later message in the same thread. */
+export const READABLE_TEXT_LIMIT = 8000;
+
+/** The readable content of an arbitrary web page: title, description, heading
+ *  outline and body text. Returns `null` when the page yields nothing worth
+ *  reading, so a caller can say "I could not read that page" instead of
+ *  answering confidently about an empty string. */
+export function extractReadableText(html: string): ReadablePage | null {
+  const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  const title = titleTag ? plainText(titleTag).slice(0, 200) : undefined;
+  const description = meta(html, [
+    "description",
+    "og:description",
+    "twitter:description",
+  ])?.slice(0, 400);
+
+  // Chrome is dropped before anything is read: a nav row repeated on every page
+  // of a site is not what the owner pointed at, and it crowds out the cap.
+  const body = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(header|nav|footer|form)[\s\S]*?<\/\1>/gi, " ");
+
+  const outline: Array<{ level: 1 | 2 | 3; text: string }> = [];
+  const headingRe = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
+  let hm: RegExpExecArray | null;
+  while ((hm = headingRe.exec(body)) && outline.length < 40) {
+    const text = plainText(hm[2] ?? "").slice(0, 160);
+    if (text.length < 2) continue;
+    outline.push({ level: Number(hm[1]) as 1 | 2 | 3, text });
+  }
+
+  // Block-level text in page order. Headings stay in the flow so a paragraph
+  // still reads under the heading it belongs to.
+  const parts: string[] = [];
+  let total = 0;
+  const blockRe =
+    /<(h[1-6]|p|li|blockquote|td|th|dd|dt|figcaption)[^>]*>([\s\S]*?)<\/\1>/gi;
+  let bm: RegExpExecArray | null;
+  while ((bm = blockRe.exec(body)) && total < READABLE_TEXT_LIMIT) {
+    const text = plainText(bm[2] ?? "");
+    if (text.length < 2) continue;
+    parts.push(text);
+    total += text.length + 1;
+  }
+  // A page whose copy lives in bare divs (many builders) yields no block match
+  // at all. Fall back to the whole body as one run rather than reporting an
+  // empty read - an empty read is the failure this whole lane exists to avoid.
+  const joined =
+    parts.length > 0 ? parts.join("\n") : plainText(body);
+  const text = joined.slice(0, READABLE_TEXT_LIMIT).trim();
+
+  if (text.length < 40 && outline.length === 0 && !title) return null;
+  return {
+    ...(title ? { title } : {}),
+    ...(description ? { description } : {}),
+    outline,
+    text,
+  };
 }
 
 /** The page's first real `<h1>` (or `<h2>` when it has none), outside header/
