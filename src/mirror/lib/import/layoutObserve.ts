@@ -35,11 +35,54 @@ function stripTags(html: string): string {
   return decodeHtmlEntities(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
 }
 
-/** Strip the parts that would otherwise be read as page structure. */
-function withoutChrome(html: string): string {
+/** Blank a match out while KEEPING the document's length, so every offset in
+ *  the stripped copy is still the offset in the original HTML. That is what
+ *  lets a band be matched back to the section built from it (see
+ *  `splitBlocksAt`); collapsing chrome to a single space shifted everything
+ *  after the first `<script>` and the match silently landed on the wrong band. */
+function blank(match: string): string {
+  return " ".repeat(match.length);
+}
+
+/** Strip the parts that would otherwise be read as page structure - and, since
+ *  the same call now feeds `htmlToSections`, the parts that are not the owner
+ *  writing to a visitor either.
+ *
+ *  A `<template>`'s copy, a `<script type="text/template">`'s markup and an
+ *  inline `<svg><title>` are markup the page never shows; a footer's fine print
+ *  is on every page of the site; and a `<dialog>` is a modal the page opens
+ *  over itself. All of them used to reach an imported draft as the business's
+ *  own prose.
+ *
+ *  `aria-hidden` is deliberately NOT on that list, however tempting. A page
+ *  with a modal open marks its whole root `aria-hidden="true"` - every consent
+ *  library and most React dialog libraries do - and the capture lane serialises
+ *  exactly that DOM, so stripping the attribute's subtree can delete the entire
+ *  website and keep the cookie bar. A collapsed accordion panel is the same
+ *  shape and holds real answers. Losing the owner's words is the one outcome
+ *  this module may never produce.
+ *
+ *  Because `blank` keeps the document's length, every offset in the result is
+ *  still an offset in the original, which is what lets a band and a paragraph
+ *  join back to the source. */
+export function withoutChrome(html: string): string {
   return html
-    .replace(/<(script|style|noscript|template|svg)[\s\S]*?<\/\1>/gi, " ")
-    .replace(/<(header|nav|footer)[\s\S]*?<\/\1>/gi, " ");
+    .replace(/<(script|style|noscript|template|svg)[\s\S]*?<\/\1>/gi, blank)
+    .replace(/<(header|nav|footer|dialog)[\s\S]*?<\/\1>/gi, blank);
+}
+
+/** Characters that are actually markup or words. Used for the block-size
+ *  floor, which must not count the padding `withoutChrome` leaves behind - a
+ *  divider wrapped around a 4 KB script is still a divider.
+ *
+ *  Collapsing every run of whitespace, not only the blanked chrome, makes this
+ *  marginally STRICTER than the old raw `block.length` on pretty-printed
+ *  markup, where indentation used to count toward the floor. That is the right
+ *  direction for a floor whose job is "is there enough here to be a layout",
+ *  and the observer's own suite plus `htmlToSections.test.ts` pin the blocks a
+ *  real page produces. */
+function solidLength(block: string): number {
+  return block.replace(/\s+/g, " ").trim().length;
 }
 
 /** Content images only - a logo or an icon says nothing about the layout. */
@@ -53,22 +96,33 @@ function contentImages(html: string): number {
   return count;
 }
 
-/** Split a page into its top-level blocks. `<section>`/`<article>` when the
- *  page uses them, otherwise the regions between top-level headings. */
-export function splitBlocks(html: string): string[] {
+/** One top-level block, with where it started in the SOURCE html. */
+export type SourceBlock = { html: string; at: number };
+
+/** Split a page into its top-level blocks, each carrying its byte offset in the
+ *  original document. The offset is the join key back to a built section (whose
+ *  `at` is an offset into the same html), so a proposal about "the third band"
+ *  can only ever reach the section that band produced. */
+export function splitBlocksAt(html: string): SourceBlock[] {
   const page = withoutChrome(html);
   const tagged = scanBalanced(page, ["section", "article"]);
   const blocks = tagged.length >= 2 ? tagged : splitByHeadings(page);
   return blocks
-    .map((block) => block.slice(0, MAX_BLOCK_CHARS))
-    .filter((block) => block.length >= MIN_BLOCK_CHARS)
+    .map((block) => ({ html: block.html.slice(0, MAX_BLOCK_CHARS), at: block.at }))
+    .filter((block) => solidLength(block.html) >= MIN_BLOCK_CHARS)
     .slice(0, MAX_BLOCKS);
+}
+
+/** Split a page into its top-level blocks. `<section>`/`<article>` when the
+ *  page uses them, otherwise the regions between top-level headings. */
+export function splitBlocks(html: string): string[] {
+  return splitBlocksAt(html).map((block) => block.html);
 }
 
 /** Depth-aware scan for the OUTERMOST occurrences of the given tags, so a
  *  `<section>` nested inside another is read as part of its parent block. */
-function scanBalanced(html: string, tags: string[]): string[] {
-  const out: string[] = [];
+function scanBalanced(html: string, tags: string[]): SourceBlock[] {
+  const out: SourceBlock[] = [];
   const pattern = new RegExp(`<(/?)(${tags.join("|")})\\b[^>]*>`, "gi");
   let depth = 0;
   let start = -1;
@@ -81,7 +135,7 @@ function scanBalanced(html: string, tags: string[]): string[] {
     } else if (depth > 0) {
       depth--;
       if (depth === 0 && start >= 0) {
-        out.push(html.slice(start, at + match[0].length));
+        out.push({ html: html.slice(start, at + match[0].length), at: start });
         start = -1;
         if (out.length >= MAX_BLOCKS * 2) break;
       }
@@ -90,10 +144,10 @@ function scanBalanced(html: string, tags: string[]): string[] {
   return out;
 }
 
-function splitByHeadings(html: string): string[] {
-  const out: string[] = [];
+function splitByHeadings(html: string): SourceBlock[] {
+  const out: SourceBlock[] = [];
   const re = /<h[12][^>]*>[\s\S]*?(?=<h[12][\s>]|$)/gi;
-  for (const match of html.matchAll(re)) out.push(match[0]);
+  for (const match of html.matchAll(re)) out.push({ html: match[0], at: match.index ?? 0 });
   return out;
 }
 

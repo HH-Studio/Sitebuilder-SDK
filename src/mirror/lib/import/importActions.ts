@@ -116,8 +116,26 @@ export type SourceSignals = {
   adobeKitIds: string[];
   /** Motion libraries / attribute conventions detected, e.g. ["GSAP"]. */
   motionLibs: string[];
-  /** Third-party embeds (iframes) that could not come over. */
+  /** Third-party embeds that could not come over, ALREADY net of the ones the
+   *  typed conversion carried across as native blocks (`withCarriedEmbeds` in
+   *  htmlToSections.ts). Counts every element the capture treats as an embed -
+   *  `<iframe>`, `<object>`, `<embed>` - because the captured lane promotes all
+   *  three and its receipt reconciles against this number. */
   embeds: number;
+  /** How many of the source's embed elements the TYPED conversion turned into
+   *  blocks of ours, i.e. how much `embeds` above was reduced by. The captured
+   *  lane builds a different draft from the same source, so its receipt has to
+   *  reconcile against the raw embed count (`embeds + embedsCarried`) rather
+   *  than subtract its own promotions from a number the typed lane already
+   *  discounted - see `lostEmbedCount`. */
+  embedsCarried?: number;
+  /** How many of `embedsCarried` sit on the page a capture REPLACES (the home
+   *  page). Every other page keeps its typed sections in the captured draft
+   *  (`withCapturedSections`), so those carried films are still blocks there
+   *  and adding them back to the raw count would report a working video as
+   *  lost. Absent on a single-page conversion, where the only page is that
+   *  page. */
+  embedsCarriedHome?: number;
   /** Template placeholder runs still present in the copy ("Lorem ipsum"). */
   placeholders: number;
   /** How much readable text the SERVED document actually carried, and whether
@@ -133,6 +151,66 @@ export type SourceSignals = {
   commerce?: CommerceDetection | null;
 };
 
+/**
+ * How many of the source's embeds this draft really lost.
+ *
+ * Two lanes ask, and they are different drafts built from one source, so they
+ * cannot share a subtraction:
+ *
+ * - The TYPED conversion carried some iframes over as native blocks, and
+ *   `signals.embeds` is already net of those. Nothing more to subtract.
+ * - The CAPTURED draft replaces the HOME page with the source's own DOM, with
+ *   `capturedEmbeds` promoting the films and maps IT recognised. Subtracting
+ *   its promotions from the typed lane's already reduced count discounted the
+ *   same embed twice, so a home-page video plus one unsupported widget
+ *   elsewhere reported nothing lost while the widget was simply absent. It adds
+ *   back the raw embed elements of the page it replaced instead - `<iframe>`,
+ *   `<object>` and `<embed>` alike, because the capture promotes all three and
+ *   subtracting an `<object>` promotion from a count of iframes alone hid a
+ *   real loss.
+ *
+ *   Only that page, though: `withCapturedSections` keeps every OTHER page's
+ *   typed sections, so a subpage's YouTube iframe is still a native video in
+ *   the captured draft. Adding it back to the raw count reported one loss for a
+ *   film the owner can see - `embedsCarriedHome` is what keeps the two apart,
+ *   and a signal that predates it falls back to the whole carried count.
+ *
+ * `embedsPromoted` is what tells the two lanes apart, so it is read for
+ * PRESENCE: a captured draft that promoted nothing still lost every iframe on
+ * the page it replaced.
+ *
+ * `embedsReplaced` is what is SUBTRACTED, because the count being reduced is a
+ * count of source ELEMENTS. A page that ships the same film twice - a desktop
+ * copy and a phone copy of one iframe - is two of those elements, and the
+ * capture answers it with one logical block projected into both source boxes.
+ * Subtracting the block count instead reported that
+ * pair as one dropped embed while the film plays on every width. Absent (an
+ * older caller) falls back to the block count, which is what it always was.
+ */
+export function lostEmbedCount(
+  signals:
+    | Pick<SourceSignals, "embeds" | "embedsCarried" | "embedsCarriedHome">
+    | undefined,
+  embedsPromoted?: number,
+  embedsReplaced?: number,
+): number {
+  const netOfTyped = Math.max(0, signals?.embeds ?? 0);
+  if (embedsPromoted === undefined) return netOfTyped;
+  const carriedOnCapturedPage = Math.max(
+    0,
+    signals?.embedsCarriedHome ?? signals?.embedsCarried ?? 0,
+  );
+  const raw = netOfTyped + carriedOnCapturedPage;
+  // Never fewer than the blocks built: a collapse count that arrives short (a
+  // mark the sanitiser dropped before the box could be hidden) must not make a
+  // promoted film read as lost.
+  const accountedFor = Math.max(
+    Math.max(0, embedsPromoted),
+    Math.max(0, embedsReplaced ?? 0),
+  );
+  return Math.max(0, raw - accountedFor);
+}
+
 export const EMPTY_SIGNALS: SourceSignals = {
   adobeKitIds: [],
   motionLibs: [],
@@ -143,7 +221,14 @@ export const EMPTY_SIGNALS: SourceSignals = {
 
 // use.typekit.net/<kit>.js|css, and the older //use.typekit.com/<kit>.js form.
 const TYPEKIT_RE = /use\.typekit\.(?:net|com)\/([a-z0-9]+)\.(?:js|css)/gi;
-const IFRAME_RE = /<iframe\b/gi;
+// Every element the capture treats as an embed, not only `<iframe>`. The
+// capture's `markBehaviours` replaces `iframe,object,embed` alike and promotes
+// whichever of them it recognises, so counting iframes alone let one promoted
+// `<object>` cancel out an unsupported iframe that really did disappear: the
+// receipt said nothing was lost while the widget was simply gone. The typed
+// conversion drops `<object>` and `<embed>` too, so the wider count is the
+// honest one on both lanes.
+const EMBED_ELEMENT_RE = /<(?:iframe|object|embed)\b/gi;
 // "Lorem ipsum" is the near-universal marker of an untouched template block
 // (page-builder templates ship it); matching the two words together avoids flagging a
 // page that happens to use the word "lorem" in prose.
@@ -185,7 +270,7 @@ export function detectSourceSignals(
   return {
     adobeKitIds,
     motionLibs,
-    embeds: countOf(html, IFRAME_RE),
+    embeds: countOf(html, EMBED_ELEMENT_RE),
     placeholders: countOf(html, PLACEHOLDER_RE),
     content: assessSourceContent(html),
     commerce: detectCommerce({ html, baseUrl }),
@@ -246,9 +331,9 @@ const COPY: Record<ActionLocale, Copy> = {
     adobeWhere: "Redigeraren → Design → Typsnitt",
     motionTitle: "Se över rörelsen på sidan",
     motionDetail: (libs) =>
-      `Originalet animerade innehållet med ${libs}. Vi har satt på SnabbSajts egen rörelse i stället, så sidan inte blir helt stilla – men den är inte identisk med originalet. Titta igenom och justera styrkan, eller stäng av den.`,
+      `Originalet animerade innehållet med ${libs}. Vi har satt på Snabbsites egen rörelse i stället, så sidan inte blir helt stilla – men den är inte identisk med originalet. Titta igenom och justera styrkan, eller stäng av den.`,
     motionMeasuredDetail: (libs) =>
-      `Originalet animerade innehållet med ${libs}. Vi läste av hur långt, hur snabbt och med vilken kurva innehållet rör sig och byggde om det med SnabbSajts egen rörelse - utan någon extra kod på din sajt. Titta igenom och justera, eller stäng av den.`,
+      `Originalet animerade innehållet med ${libs}. Vi läste av hur långt, hur snabbt och med vilken kurva innehållet rör sig och byggde om det med Snabbsites egen rörelse - utan någon extra kod på din hemsida. Titta igenom och justera, eller stäng av den.`,
     motionWhere: "Utseende → Rörelse",
     motionNoteBlur: (loadPx, scrollPx) =>
       `Sidan gjorde innehållet suddigt ${loadPx} px när den laddades och ${scrollPx} px vid scroll. Vi har en oskärpa, så båda använder ${scrollPx} px.`,
@@ -257,9 +342,9 @@ const COPY: Record<ActionLocale, Copy> = {
         ? "Ett element gled i annan takt än sidan (parallax). Rörelsen finns kvar som inställning, men vi kunde inte peka ut exakt vilken sektion den satt på."
         : `${count} element gled i annan takt än sidan (parallax). Rörelsen finns kvar som inställning, men vi kunde inte peka ut exakt vilka sektioner de satt på.`,
     motionNoteAttrs: (families) =>
-      `Sidan hade animationer (${families}) som vi inte kunde läsa, så sajten använder SnabbSajts standardrörelse i stället.`,
+      `Sidan hade animationer (${families}) som vi inte kunde läsa, så hemsidan använder Snabbsites standardrörelse i stället.`,
     motionNoteSmoothScroll:
-      "Sidan använde ett skript för mjuk scroll. SnabbSajt scrollar mjukt till länkar på sidan utan extra kod, men själva sidan scrollar normalt.",
+      "Sidan använde ett skript för mjuk scroll. Snabbsite scrollar mjukt till länkar på sidan utan extra kod, men själva sidan scrollar normalt.",
     placeholderTitle: "Byt ut mallens platshållartext",
     placeholderDetail:
       "Vi hittade ”Lorem ipsum” kvar från mallen originalet byggdes på. Den följde med som den var – skriv över den med din egen text innan du publicerar.",
@@ -274,8 +359,8 @@ const COPY: Record<ActionLocale, Copy> = {
       "Kartor, videor och bokningsfönster från andra tjänster kan inte flyttas automatiskt. Lägg tillbaka dem med rätt sektion.",
     storeTitleHigh: (provider) => `Behåll butiken i ${provider} – länka till den härifrån`,
     storeDetailHigh: (provider, products) =>
-      `Du säljer redan via ${provider}${products ? ` – minst ${products} produkter` : ""}. Vi har inte flyttat, ändrat eller aktiverat någonting: produkter, lager och ordrar ligger kvar där de är. Enklast är att låta butiken vara kvar och länka till den från nya sajten.`,
-    storeTitleLow: "Bestäm om kunderna ska kunna handla direkt på sajten",
+      `Du säljer redan via ${provider}${products ? ` – minst ${products} produkter` : ""}. Vi har inte flyttat, ändrat eller aktiverat någonting: produkter, lager och ordrar ligger kvar där de är. Enklast är att låta butiken vara kvar och länka till den från nya hemsidan.`,
+    storeTitleLow: "Bestäm om kunderna ska kunna handla direkt på hemsidan",
     storeDetailLow: (found) =>
       `Sidan ser ut att sälja något redan (${found}). Vi har inte flyttat eller aktiverat någonting. Säg till så visar vi exakt vad vi hittade.`,
     contactTitle: "Fyll i dina kontaktuppgifter",
@@ -284,7 +369,7 @@ const COPY: Record<ActionLocale, Copy> = {
     contactWhere: "Inställningar → Kontakt",
     thinTitle: "Vi fick nästan ingen text från din sida",
     thinShellDetail: (shell) =>
-      `Din sida byggs ihop i besökarens webbläsare (${shell}), så koden vi hämtade är nästan tom. Det vi kunde läsa har följt med, men det blir en tunn sajt. Skriv in texten själv i redigeraren, eller hör av dig så hämtar vi sidan på ett annat sätt.`,
+      `Din sida byggs ihop i besökarens webbläsare (${shell}), så koden vi hämtade är nästan tom. Det vi kunde läsa har följt med, men det blir en tunn hemsida. Skriv in texten själv i redigeraren, eller hör av dig så hämtar vi sidan på ett annat sätt.`,
     thinDetail: (words) =>
       `Vi hittade bara ${words} ord på sidan. Antingen ligger texten i bilder eller i kod som inte följer med, eller så var sidan tom när vi läste den. Kontrollera resultatet och fyll på med din egen text.`,
     thinWhere: "Redigeraren",
@@ -315,9 +400,9 @@ const COPY: Record<ActionLocale, Copy> = {
     adobeWhere: "Editor → Design → Fonts",
     motionTitle: "Check the motion on the page",
     motionDetail: (libs) =>
-      `The original animated its content with ${libs}. We turned on SnabbSajt's own motion instead, so the page isn't completely still - but it is not identical to the original. Look it over and adjust the strength, or turn it off.`,
+      `The original animated its content with ${libs}. We turned on Snabbsite's own motion instead, so the page isn't completely still - but it is not identical to the original. Look it over and adjust the strength, or turn it off.`,
     motionMeasuredDetail: (libs) =>
-      `The original animated its content with ${libs}. We read how far, how fast and on what curve the content moves, and rebuilt it with SnabbSajt's own motion - with no extra code on your site. Look it over and adjust, or turn it off.`,
+      `The original animated its content with ${libs}. We read how far, how fast and on what curve the content moves, and rebuilt it with Snabbsite's own motion - with no extra code on your site. Look it over and adjust, or turn it off.`,
     motionWhere: "Appearance → Motion",
     motionNoteBlur: (loadPx, scrollPx) =>
       `The page blurred content by ${loadPx}px on load and ${scrollPx}px on scroll. We carry one blur, so both use ${scrollPx}px.`,
@@ -326,9 +411,9 @@ const COPY: Record<ActionLocale, Copy> = {
         ? "One element drifted at a different speed to the page (a parallax). The movement is kept as a setting, but we could not tell which section it belonged to."
         : `${count} elements drifted at a different speed to the page (a parallax). The movement is kept as a setting, but we could not tell which sections they belonged to.`,
     motionNoteAttrs: (families) =>
-      `The page declared animations (${families}) we could not read, so this site uses SnabbSajt's standard motion instead.`,
+      `The page declared animations (${families}) we could not read, so this site uses Snabbsite's standard motion instead.`,
     motionNoteSmoothScroll:
-      "The page used a smooth-scroll script. SnabbSajt scrolls smoothly to in-page links without extra code, but the page itself scrolls normally.",
+      "The page used a smooth-scroll script. Snabbsite scrolls smoothly to in-page links without extra code, but the page itself scrolls normally.",
     placeholderTitle: "Replace the template's placeholder text",
     placeholderDetail:
       "We found “Lorem ipsum” left over from the template the original was built on. It came across as-is - write over it before you publish.",
@@ -383,9 +468,9 @@ const COPY: Record<ActionLocale, Copy> = {
     adobeWhere: "Edytor → Design → Czcionki",
     motionTitle: "Sprawdź ruch na stronie",
     motionDetail: (libs) =>
-      `Oryginał animował treść przy użyciu ${libs}. Włączyliśmy zamiast tego własny ruch SnabbSajt, żeby strona nie była całkiem statyczna - ale nie jest identyczny z oryginałem. Przejrzyj go i dostosuj siłę albo wyłącz.`,
+      `Oryginał animował treść przy użyciu ${libs}. Włączyliśmy zamiast tego własny ruch Snabbsite, żeby strona nie była całkiem statyczna - ale nie jest identyczny z oryginałem. Przejrzyj go i dostosuj siłę albo wyłącz.`,
     motionMeasuredDetail: (libs) =>
-      `Oryginał animował treść przy użyciu ${libs}. Odczytaliśmy, jak daleko, jak szybko i po jakiej krzywej porusza się treść, i odtworzyliśmy to własnym ruchem SnabbSajt - bez dodatkowego kodu na Twojej stronie. Przejrzyj i dostosuj albo wyłącz.`,
+      `Oryginał animował treść przy użyciu ${libs}. Odczytaliśmy, jak daleko, jak szybko i po jakiej krzywej porusza się treść, i odtworzyliśmy to własnym ruchem Snabbsite - bez dodatkowego kodu na Twojej stronie. Przejrzyj i dostosuj albo wyłącz.`,
     motionWhere: "Wygląd → Ruch",
     motionNoteBlur: (loadPx, scrollPx) =>
       `Strona rozmywała treść o ${loadPx} px przy ładowaniu i o ${scrollPx} px przy przewijaniu. Mamy jedno rozmycie, więc oba używają ${scrollPx} px.`,
@@ -394,9 +479,9 @@ const COPY: Record<ActionLocale, Copy> = {
         ? "Jeden element przesuwał się w innym tempie niż strona (paralaksa). Ruch pozostaje jako ustawienie, ale nie mogliśmy wskazać dokładnej sekcji."
         : `${count} elementy przesuwały się w innym tempie niż strona (paralaksa). Ruch pozostaje jako ustawienie, ale nie mogliśmy wskazać dokładnych sekcji.`,
     motionNoteAttrs: (families) =>
-      `Strona deklarowała animacje (${families}), których nie udało się odczytać, więc ta witryna używa standardowego ruchu SnabbSajt.`,
+      `Strona deklarowała animacje (${families}), których nie udało się odczytać, więc ta witryna używa standardowego ruchu Snabbsite.`,
     motionNoteSmoothScroll:
-      "Strona używała skryptu płynnego przewijania. SnabbSajt płynnie przewija do linków na stronie bez dodatkowego kodu, ale sama strona przewija się normalnie.",
+      "Strona używała skryptu płynnego przewijania. Snabbsite płynnie przewija do linków na stronie bez dodatkowego kodu, ale sama strona przewija się normalnie.",
     placeholderTitle: "Zamień tekst zastępczy z szablonu",
     placeholderDetail:
       "Znaleźliśmy „Lorem ipsum” pozostawione z szablonu. Przeniosło się bez zmian - zastąp je własnym tekstem przed publikacją.",
@@ -484,6 +569,13 @@ export function buildImportActions(input: {
   motionNotes?: MotionNote[];
   /** False when neither email nor phone was found on the source. */
   hasContact?: boolean;
+  /** Embeds the CAPTURED lane turned into a block of ours (a film, a map).
+   *  `signals.embeds` counts what the source declared, so without this the
+   *  owner reads "your embeds were dropped" underneath a working map. */
+  embedsPromoted?: number;
+  /** Source boxes those blocks stand in for - two, for a film shipped once per
+   *  layout. See `lostEmbedCount`: the subtraction is in elements, not blocks. */
+  embedsReplaced?: number;
   /** Why the design was NOT measured off a real render of the source. Absent
    *  means it was measured (or the caller predates the boundary) - either way
    *  no action, because "we did the accurate thing" is not a follow-up. */
@@ -587,11 +679,15 @@ export function buildImportActions(input: {
     });
   }
 
-  if (s.embeds > 0) {
+  // Only the embeds that really did fall out. A captured lane puts the films
+  // and maps it recognised back as blocks of ours, and counting those as
+  // dropped sends the owner looking for something that is already on the page.
+  const embedsLost = lostEmbedCount(s, input.embedsPromoted, input.embedsReplaced);
+  if (embedsLost > 0) {
     out.push({
       code: "embeds_dropped",
       severity: "action",
-      title: L.embedsTitle(s.embeds),
+      title: L.embedsTitle(embedsLost),
       detail: L.embedsDetail,
     });
   }

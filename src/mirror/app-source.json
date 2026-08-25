@@ -1,5 +1,5 @@
 {
-  "commit": "24edb8d8bcf23492b0008443161f1a253556c66c",
+  "commit": "1b74e738e4736f6b7fa3350f1038323b94d9e3ad",
   "files": {
     "convex/model/serviceSuggestions.ts": {
       "appSha256": "2adb371e1359f6a6b90f4ecbb0af0a1673b4f500e77cfc670d67268e38e5a89b",
@@ -10,36 +10,44 @@
       "mirrorSha256": "8d92ac16577a1630ce6b6db176f707919cc19b3c2bae83b0064865acda2dcc94"
     },
     "lib/brand.ts": {
-      "appSha256": "10a918994f782611321008c3f028f07dfb5e52de77d7f450d65804d5b0390623",
-      "mirrorSha256": "9a45d96032628953482ff0ef25bf20c099d14e7a4d545089330513728d31913c"
+      "appSha256": "bbd76d473c516ae89918ffdaf602af57e2f9e2b56ba0ce3689d0272eabe7ff82",
+      "mirrorSha256": "0b9fc32e811e575709b6bbea8d8ed803c8c123af57d585b58e1f302fc2511fa3"
     },
     "lib/external/localBusiness.ts": {
       "appSha256": "8a83b4a102eb072f4415abd79f9f2af88f4049bab816ffbad38f01f4c20654ba",
       "mirrorSha256": "814911ef396e321e8ce14d12d4906e5f9f0c2960906eb835aaad25921398745c"
     },
+    "lib/html/attributes.ts": {
+      "appSha256": "f37d509a65a6e7f26574e24ee35448808281023d5f6b7d87947355501371634c",
+      "mirrorSha256": "4ad56867978934fdc1ab573ad2583c18480672a617d2522ad793b01893d18fbd"
+    },
     "lib/html/entities.ts": {
       "appSha256": "01faa5a896b7ea366794c8fcd4bc62d9cab2d19487b2fdd5208ed3287b21eafe",
       "mirrorSha256": "5b11b1021837d141a6bc34f20a5b30ce615bd2a15ed7bb9102c141627a9518c8"
     },
+    "lib/import/bandContent.ts": {
+      "appSha256": "f9d676a4062005c7a4798c18ea806281858e04791d4704158ac9935385fb32bf",
+      "mirrorSha256": "d5c8b5db84e62acc9530c73e1a7cd44ce051cfc0a40004eab3d467ac7a420ef7"
+    },
     "lib/import/designExtract.ts": {
-      "appSha256": "376fbb3567507eb32d155d7a8eab1af89c4cef1479b753e4c7520acbc1cf61c3",
-      "mirrorSha256": "2f332a7d09c632a064a1b544db361d34578db5a189a563235a3fcf5f6cb4e9c1"
+      "appSha256": "ba7d62022203cdf7cb6f5009471a59132bb2b37dc37d1a5a11a44c58246bfa95",
+      "mirrorSha256": "2645cfe8f84397b5d5796e925ac9ef32def9e209ac9a0d8f60cc717bbf0aa396"
     },
     "lib/import/htmlToSections.ts": {
-      "appSha256": "7c91c49665950cf136d0622bb293e61d76049c3b311329b8a9fc270f601c4c9a",
-      "mirrorSha256": "36d64d46aea6624a9422acffcd15d1bdf74b7c325f0a5b98a9f5d0735b69dc6d"
+      "appSha256": "aa47d426ebcd65c933a1f58cdc90d200d053974098624760fb2b9754efbbf648",
+      "mirrorSha256": "54896f1921c1b03ace8e4c25fa5320a33709ba5e99e2dc6c47ea585f4022d45d"
     },
     "lib/import/imageCandidates.ts": {
       "appSha256": "8f259e32f15208dec8ca33e70cbb68f2ed127a7f12fba024f10a825a38093e8e",
       "mirrorSha256": "fd27e71b3db5ce6bb472a612eb909f4f8737ebf1604f9ceb7dab01be37948aa0"
     },
     "lib/import/importActions.ts": {
-      "appSha256": "d19f13fd6e85ce360a6e0f8284be4f02386aab8e1417338ec66c55cb910e80a7",
-      "mirrorSha256": "5d08d2b8ef5f6ea6d91577eb690da87c7b63ef743254ecd0022709d410d7a657"
+      "appSha256": "4a2cbe46c51e1459923e3cdbc4806ff98b740fd839097b8ae07b84fbce5f6d61",
+      "mirrorSha256": "3784b08eb5e919d6da3d21d2bcd573cf853b98bbbcf20860bcb5280bc68f22a0"
     },
     "lib/import/layoutObserve.ts": {
-      "appSha256": "2245785454b4777c0641c4696bcc6e973c602f12471ba00c3a0d8c61925e85f3",
-      "mirrorSha256": "85af2c25fa15a4a1fe7d1948b0a1b629f43efdd7ca887cf747180ee86e56af48"
+      "appSha256": "5aeb6d77a0723e84ca9cfddd226eaaa7aeacceabae42945ea37ac3cd315619f4",
+      "mirrorSha256": "1481d574ab04ce3f7ff95652d989d567f0ccc2487cabab69891b3c9270cf0810"
     },
     "lib/import/measureSource.ts": {
       "appSha256": "f45860aaab2ed395c92666bf01aa0e32aa40172dd432a4e19edb3cac7031afc1",
@@ -54,16 +62,20 @@
       "mirrorSha256": "75b3388191b6f454cbe0a83085cbc39f379078e3bd841bb568954716f0be87fd"
     },
     "lib/import/sampleComputedStyles.ts": {
-      "appSha256": "5213164acd49ec2384c2f87e7740433ac803f924456aad5e63088f436db676e9",
-      "mirrorSha256": "4228e3fa463d882d3a160a491bd5a4c27b602b389b19050bffd3c6dd78f67729"
+      "appSha256": "ffc0de4a29202e8c1ad01029fb090e7175cf6c5a48d3d8aac91efd661407af1a",
+      "mirrorSha256": "f3a59828ff5ad18630ae3542442e71855a2ae34968da6860df8140ba7f2883ed"
+    },
+    "lib/import/sectionProposal.ts": {
+      "appSha256": "12f6f38d4af51ef417893dd6a2de36bf1e5b8062cbf6502c24ce51343eb94ab0",
+      "mirrorSha256": "8b2a72ef559b8908f137bfaf592c694d66edf1b92fb5dce7e4df4d5595c714c8"
     },
     "lib/import/structureDetect.ts": {
-      "appSha256": "bb205b84bc3965a8f46fe3ddfbd142cff026b48ce938355c85ef52d2fa6b7577",
-      "mirrorSha256": "f8ee767eb6efd7e0fbb6f2a70e03d40e6aaa27e5f5fbaf62f613484fbc731a1e"
+      "appSha256": "19566ea9beeea434854d4d4c3b6dcafb57757226ad21d58ffd7714fd1d510b5a",
+      "mirrorSha256": "ec7fbb2b8d56670ae5ea72e314a0eb74500069ffc01c8eb444472351df7138c3"
     },
     "lib/net/url.ts": {
-      "appSha256": "3c36028c3dd7a8b263cd33b7dda99f4afa0d5f05d64e8691f2247c20165d4b63",
-      "mirrorSha256": "de95c76f3188ed76e393005bd54642dff2395f8a972f3ec012ee170d3cdebfc5"
+      "appSha256": "880ab4cc222d4b0c753e42a066e769a4d854b457033de55f935a407e31cc143f",
+      "mirrorSha256": "493584480fe9dcd30434798f6d6bec11ba8298b6d44d0f26e8c95ef32c9e7bb2"
     },
     "lib/scrape/bokadirekt.ts": {
       "appSha256": "9eeff51fa331bfa50c7801d464877b778b6f6b02e164c967556db44ba5c61ba2",
@@ -86,8 +98,8 @@
       "mirrorSha256": "690021091913a9b545cdc1df867ee401492dfaef14ff02928789b99136335cae"
     },
     "lib/scrape/parse.ts": {
-      "appSha256": "590b404d70d65e7a39cd0f8266cc38008ababcd248608dde5fd3578936190854",
-      "mirrorSha256": "9135883d7cf63ad480fee5da47170da7963334f11b2befb8d384e3a52474690d"
+      "appSha256": "ce2a93d198120bc3a9527206d8243f52a2ae8d715d5e6ba94b22577bacb3b8d6",
+      "mirrorSha256": "78f4ddcef7344ac63fc7f74728e3fc5860e55cf573034b29cce7804f163d43aa"
     },
     "lib/sections/layoutShape.ts": {
       "appSha256": "7bbbe36ada3118d1b41acb712b3ea9f64bfeb4fe1e796c2614bc2ec55194a82e",
@@ -98,8 +110,12 @@
       "mirrorSha256": "6f4a53c1d6ca5efef0a34a5e6561f9a056ec41ddb3bb4cfae6a8a45c29abb0bf"
     },
     "lib/sections/openingHours.ts": {
-      "appSha256": "8f52319406370dcacd0f8621043b268d302f49ac8052e6640968133cf4cbe984",
-      "mirrorSha256": "84393ef9af35876649e284e4432338b1743d5753ef62f9b63b260008cbfbe49f"
+      "appSha256": "88a3b34deedb1287b6e35184c91393c9b72e4602916fed21b0244b958eb45233",
+      "mirrorSha256": "d2fb4a8ab3e88900d69c0c1a17e3742711a499389a026f3ce4a6560fe54071de"
+    },
+    "lib/sections/variantRequirements.ts": {
+      "appSha256": "6ab907d7c6269b61751ef1cd2d1eb236aae07866b7f043923571e7fbb0067e5b",
+      "mirrorSha256": "8c2f5bc61e62a4264826b4231b6f0b09ce1cb8ba8d436df2bf593ee3e74f9afe"
     },
     "lib/socials.ts": {
       "appSha256": "e06e5ffd50ddbea22fca53dbdf562792facd9c5253d45563010c9ca67273c84f",
@@ -108,6 +124,10 @@
     "lib/tracking.ts": {
       "appSha256": "afb5d3c583abb155c46d483a1be039cab0eec05c31c5561e9c4ebe117c8dcebe",
       "mirrorSha256": "6fba365501437e21451f3da5ea9c0d9c7a28ddcb2642f9357c29603e825a84cd"
+    },
+    "lib/uploads/documentTypes.ts": {
+      "appSha256": "20255caafef3844ba1f53c9a180535b412005018620b2e6b684c95e8c5b09bec",
+      "mirrorSha256": "da7ea54512841880906de4e10036d2bb9f2b9f5c4d8b11f986c5aeafa4c5c2bc"
     }
   },
   "repository": "HH-Studio/simple-site-builder"

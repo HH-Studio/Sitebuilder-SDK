@@ -127,12 +127,43 @@ function isReservedIPv4(b: number[]): boolean {
   return false;
 }
 
-/** True for an IPv6 in any private / reserved range, unwrapping IPv4-mapped and
- *  IPv4-compatible forms so an embedded private IPv4 is also caught. */
+/** True for an IPv6 in any private / reserved range.
+ *
+ *  Every form that CARRIES an IPv4 address inside it is unwrapped and the
+ *  embedded address classified instead: IPv4-mapped, IPv4-compatible, NAT64,
+ *  6to4 and Teredo. Each of those is a real route to the embedded address, so
+ *  reading only the IPv6 prefix would let `64:ff9b::a9fe:a9fe` through as an
+ *  ordinary global address when it is the cloud metadata service with a
+ *  translator in front of it. Kept identical to `reserved6` in
+ *  `lib/net/publicUrlScript.ts` and to `isReservedIPv6` in
+ *  `services/render-adapter/src/publicAddress.ts`. */
 function isReservedIPv6(b: number[]): boolean {
   // IPv4-mapped ::ffff:a.b.c.d → classify the embedded IPv4.
   if (b.slice(0, 10).every((x) => x === 0) && b[10] === 0xff && b[11] === 0xff) {
     return isReservedIPv4([b[12], b[13], b[14], b[15]]);
+  }
+  // NAT64 64:ff9b::/96 (RFC 6052): the last four bytes ARE an IPv4 address and
+  // a translator carries the packet to it.
+  if (
+    b[0] === 0x00 &&
+    b[1] === 0x64 &&
+    b[2] === 0xff &&
+    b[3] === 0x9b &&
+    b.slice(4, 12).every((x) => x === 0)
+  ) {
+    return isReservedIPv4([b[12], b[13], b[14], b[15]]);
+  }
+  // 6to4 2002::/16 (RFC 3056): bytes 2-5 are the IPv4 of the tunnel endpoint.
+  if (b[0] === 0x20 && b[1] === 0x02) {
+    return isReservedIPv4([b[2], b[3], b[4], b[5]]);
+  }
+  // Teredo 2001::/32 (RFC 4380): bytes 4-7 are the server's IPv4, and the last
+  // four are the client's, obfuscated by XOR with 0xff. `2001:db8::/32` is the
+  // documentation prefix and is NOT this - it has `0d b8` where Teredo has two
+  // zero bytes.
+  if (b[0] === 0x20 && b[1] === 0x01 && b[2] === 0x00 && b[3] === 0x00) {
+    if (isReservedIPv4([b[4], b[5], b[6], b[7]])) return true;
+    return isReservedIPv4([b[12] ^ 0xff, b[13] ^ 0xff, b[14] ^ 0xff, b[15] ^ 0xff]);
   }
   // ::/96 is entirely special-use (::, ::1 loopback, ::a.b.c.d) - never public.
   if (b.slice(0, 12).every((x) => x === 0)) return true;
@@ -167,6 +198,19 @@ export function isPrivateHostname(host: string): boolean {
   // suffixes (mDNS / cloud-internal, incl. metadata.google.internal).
   if (h.endsWith(".local") || h.endsWith(".internal")) return true;
   return false;
+}
+
+/** True when `host` is an IP literal rather than a DNS name. Accepts a bare
+ *  hostname in the shape `URL.hostname` produces, so an IPv6 literal still has
+ *  its brackets. It says nothing about whether the address is public - that is
+ *  `isPrivateHostname`'s job - only that there is no name here to resolve, so a
+ *  caller that refuses a dotless LAN name must not refuse this too. */
+export function isIpLiteralHostname(host: string): boolean {
+  let h = host.trim().toLowerCase();
+  if (h.endsWith(".")) h = h.slice(0, -1);
+  if (h.startsWith("[") && h.endsWith("]")) h = h.slice(1, -1);
+  if (h === "") return false;
+  return ipv4ToBytes(h) !== null || ipv6ToBytes(h) !== null;
 }
 
 /** True when a RESOLVED address must never be connected to. Unlike

@@ -2,6 +2,11 @@
 // Do not edit. Run `bun scripts/mirror-import.ts --sync-from-app <appRoot>`.
 
 import { decodeHtmlEntities } from "../html/entities";
+import {
+  DOCUMENT_EXTENSIONS,
+  stripDocumentExtension,
+} from "../uploads/documentTypes";
+import { attributeValue } from "../html/attributes";
 import { safeDecodeURIComponent } from "../net/url";
 import {
   ILLUSTRATION_LIMITS,
@@ -78,12 +83,15 @@ function inChrome(at: number, ranges: ReadonlyArray<[number, number]>): boolean 
 
 // --- documents -------------------------------------------------------------
 
-/** PDF only. The section's asset kind is `document`, and the import's commit
- *  path (`convex/portability.ts`) byte-sniffs `%PDF-` and rejects anything
- *  else — so offering .doc/.xlsx here would build items whose file is
- *  guaranteed to be dropped, which is the "title with nothing to download"
- *  this detector exists to avoid. */
-const PDF_HREF = /\.pdf(?:$|[?#])/i;
+/** Only the extensions the commit path will actually keep. The section's asset
+ *  kind is `document`, and `convex/portability.ts` byte-sniffs every one of
+ *  them (lib/uploads/documentSniff.ts) — so offering .xlsx or .pptx here would
+ *  build items whose file is guaranteed to be dropped, which is the "title with
+ *  nothing to download" this detector exists to avoid. */
+const DOCUMENT_HREF = new RegExp(
+  `(?:${DOCUMENT_EXTENSIONS.map((ext) => ext.replace(".", "\\.")).join("|")})(?:$|[?#])`,
+  "i",
+);
 
 const DOCUMENTS_HEADING =
   /\b(dokument|blanketter|nedladdning|ladda\s+ner|filer|prislist|villkor|broschyr|downloads?|documents?|forms?|brochures?|price\s*list)\b/i;
@@ -95,12 +103,12 @@ export type DetectedDocuments = {
 };
 
 /**
- * Downloadable PDFs the page links to.
+ * Downloadable files the page links to.
  *
  * Two ways in, because a real site publishes files two ways: a labelled block
- * ("Blanketter", one PDF under it is a genuine list of one), or an unlabelled
- * run of at least two PDF links, which is a download list whatever it is
- * called. A single unlabelled PDF is left alone — it is usually one inline
+ * ("Blanketter", one file under it is a genuine list of one), or an unlabelled
+ * run of at least two file links, which is a download list whatever it is
+ * called. A single unlabelled file is left alone — it is usually one inline
  * link inside prose ("see our terms"), and lifting it into its own band both
  * loses the sentence and invents a section.
  *
@@ -115,7 +123,7 @@ export function detectDocuments(html: string, baseUrl: string): DetectedDocument
     const at = m.index ?? 0;
     if (inChrome(at, chrome)) continue;
     const href = m[1].match(/\bhref=["']([^"']+)["']/i)?.[1];
-    if (!href || !PDF_HREF.test(href)) continue;
+    if (!href || !DOCUMENT_HREF.test(href)) continue;
     const url = absolute(decode(href), baseUrl);
     if (!url || seen.has(url)) continue;
     // The link's own words, then its title attribute, then the file name. A
@@ -123,7 +131,7 @@ export function detectDocuments(html: string, baseUrl: string): DetectedDocument
     // link is not) is skipped rather than titled with the file's hash.
     const label =
       text(m[2]) ||
-      decode(m[1].match(/\btitle=["']([^"']+)["']/i)?.[1] ?? "") ||
+      (attributeValue(m[1], "title") ?? "") ||
       titleFromFilename(url);
     if (label.length < 2 || label.length > 120) continue;
     seen.add(url);
@@ -143,8 +151,9 @@ export function detectDocuments(html: string, baseUrl: string): DetectedDocument
 
 /** "arsredovisning-2024.pdf" → "Arsredovisning 2024". Only ever a fallback. */
 function titleFromFilename(url: string): string {
-  const base = (url.split("?")[0].split("#")[0].split("/").pop() ?? "")
-    .replace(/\.pdf$/i, "")
+  const base = stripDocumentExtension(
+    url.split("?")[0].split("#")[0].split("/").pop() ?? "",
+  )
     .replace(/[-_]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -205,7 +214,7 @@ export type DetectedBanner = { at: number; text: string; ctaUrl?: string; ctaLab
  * banner. A cookie/consent bar is excluded outright — we are not importing
  * somebody else's consent UI onto a site that has its own.
  */
-const CONSENT_TEXT =
+export const CONSENT_TEXT =
   /\b(cookies?|kakor|samtycke|consent|gdpr|integritetspolicy|privacy\s+policy)\b/i;
 
 export function detectBanner(html: string, baseUrl: string): DetectedBanner | null {
@@ -475,7 +484,7 @@ export function detectBento(html: string, baseUrl: string): DetectedBento | null
       const src = nearest?.src;
       const imageUrl = src ? absolute(decode(src), baseUrl) : null;
       const description = text(
-        (rest.match(/<p[^>]*>([\s\S]*?)<\/p>/i) ?? [, ""])[1] ?? "",
+        (rest.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i) ?? [, ""])[1] ?? "",
       ).slice(0, 240);
       cells.push({
         title: title.slice(0, 80),
@@ -648,7 +657,7 @@ export function detectCaptionedImages(html: string, baseUrl: string): DetectedIm
     if (!src || /^data:/i.test(src)) continue;
     const url = absolute(decode(src), baseUrl);
     if (!url) continue;
-    const alt = decode(img[1].match(/\balt=["']([^"']*)["']/i)?.[1] ?? "");
+    const alt = attributeValue(img[1], "alt") ?? "";
     out.push({
       at: offset + (m.index ?? 0),
       url,
@@ -735,7 +744,7 @@ export function detectBeforeAfter(html: string, baseUrl: string): DetectedBefore
       // The image's own words first, then the words printed beside it. An
       // `alt="Före behandling"` is the source being explicit; a `<figcaption>`
       // is the source being explicit to the visitor.
-      const own = `${attrs} ${decode(attrs.match(/\balt=["']([^"']*)["']/i)?.[1] ?? "")}`;
+      const own = `${attrs} ${attributeValue(attrs, "alt") ?? ""}`;
       const beside = text(half);
       const cls = classTokens(attrs);
       return {
@@ -1228,7 +1237,16 @@ export function detectIllustration(html: string): DetectedIllustration | null {
 export type DetectedFormField = {
   key: string;
   label: string;
-  type: "text" | "email" | "phone" | "textarea" | "select";
+  type:
+    | "text"
+    | "email"
+    | "phone"
+    | "address"
+    | "postalCode"
+    | "city"
+    | "country"
+    | "textarea"
+    | "select";
   required: boolean;
   options?: string[];
   placeholder?: string;
@@ -1371,6 +1389,18 @@ export function detectFormFields(html: string): DetectedFormField[] | null {
         if (options.length < 2) continue;
       } else if (type === "email") kind = "email";
       else if (type === "tel") kind = "phone";
+      else if (/^(street-address|address-line1)$/i.test(
+        attrs.match(/\bautocomplete=["']([^"']+)["']/i)?.[1] ?? "",
+      )) kind = "address";
+      else if (/^postal-code$/i.test(
+        attrs.match(/\bautocomplete=["']([^"']+)["']/i)?.[1] ?? "",
+      )) kind = "postalCode";
+      else if (/^address-level2$/i.test(
+        attrs.match(/\bautocomplete=["']([^"']+)["']/i)?.[1] ?? "",
+      )) kind = "city";
+      else if (/^country(?:-name)?$/i.test(
+        attrs.match(/\bautocomplete=["']([^"']+)["']/i)?.[1] ?? "",
+      )) kind = "country";
 
       if (fields.length >= FORM_MAX_FIELDS) {
         refused = true;
@@ -1484,7 +1514,7 @@ export function detectRichTextBlocks(
   // both are plainly the article's, and both were being dropped. Whitespace is
   // the whole allowance: anything with so much as a wrapper element between it
   // and the prose belongs to whatever wrapped it, not to this run.
-  const paras = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+  const paras = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
     .map((m) => ({ at: m.index ?? 0, end: (m.index ?? 0) + m[0].length, text: text(m[1]) }))
     .filter((p) => wanted.has(proseKey(p.text)) && !inChrome(p.at, chrome));
   if (paras.length < RICH_MIN_PARAGRAPHS) return null;
@@ -1634,4 +1664,505 @@ export function detectGalleryGroup(html: string, baseUrl: string): string[] | nu
     if (urls.length >= 3) return urls;
   }
   return null;
+}
+
+// --- opening hours written as ordinary text ---------------------------------
+//
+// Why this exists, measured. The importer read opening hours from one place
+// only: the page's schema.org `openingHoursSpecification`. Almost no small
+// business site has that. What every one of them DOES have is a weekday and a
+// time range printed on the page, and over the fidelity corpus that is a whole
+// labelled block the import produced nothing for - the dentist's contact page
+// scored 0% body fidelity while its own markup said "Måndag 08:00-18:00" five
+// times in a row (backlog 2643). Hours are also the single fact a visitor is
+// most often on the page to find, so losing them is not a layout miss.
+//
+// Deterministic and conservative: a weekday NAME next to a time range, or next
+// to a word that means closed. A bare time ("Telefontid: 08:00-20:00") is not
+// hours, and neither is a weekday with nothing beside it.
+
+/** Weekday words we accept, longest first so "söndag" is not read as "sön" and
+ *  then left with "dag" hanging. Swedish and English only: those are the two
+ *  languages the importer's own copy speaks. */
+const WEEKDAYS: ReadonlyArray<{ key: OpeningDayKey; words: readonly string[] }> = [
+  { key: "mon", words: ["måndag", "mandag", "monday", "mån", "mon"] },
+  { key: "tue", words: ["tisdag", "tuesday", "tis", "tue"] },
+  { key: "wed", words: ["onsdag", "wednesday", "ons", "wed"] },
+  { key: "thu", words: ["torsdag", "thursday", "tors", "tor", "thu"] },
+  { key: "fri", words: ["fredag", "friday", "fre", "fri"] },
+  { key: "sat", words: ["lördag", "lordag", "saturday", "lör", "sat"] },
+  { key: "sun", words: ["söndag", "sondag", "sunday", "sön", "sun"] },
+];
+
+export type OpeningDayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+const DAY_ORDER: readonly OpeningDayKey[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+/** Built from the words above rather than typed out a second time. The bare
+ *  unaccented three-letter forms ("man", "lor", "son") are deliberately absent:
+ *  "man" and "son" are ordinary words, and a page that writes "man 08:00-17:00"
+ *  is rarer than one that would be misread. */
+const DAY_BY_WORD: ReadonlyMap<string, OpeningDayKey> = new Map(
+  WEEKDAYS.flatMap(({ key, words }) => words.map((w) => [w, key] as const)),
+);
+
+const DAY_WORDS = [...DAY_BY_WORD.keys()].sort((a, b) => b.length - a.length);
+const DAY_PATTERN = DAY_WORDS.join("|");
+const CLOSED_WORD = /^(stängt|stangt|closed)$/i;
+
+const HOURS_RE = new RegExp(
+  // day, optionally a range of days, then a separator, then a time range or a
+  // word meaning closed.
+  `\\b(${DAY_PATTERN})\\b\\.?` +
+    `(?:\\s*[-–—]\\s*|\\s+(?:till|to|t\\.o\\.m\\.?)\\s+)?(?:\\b(${DAY_PATTERN})\\b\\.?)?` +
+    `[\\s|:.]{0,6}` +
+    `(?:(\\d{1,2})[:.](\\d{2})\\s*[-–—]\\s*(\\d{1,2})[:.](\\d{2})|(stängt|stangt|closed))`,
+  "gi",
+);
+
+function clock(hour: string, minute: string): string | null {
+  const h = Number(hour);
+  const m = Number(minute);
+  if (!Number.isFinite(h) || !Number.isFinite(m) || h > 24 || m > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// --- printed branch addresses ----------------------------------------------
+
+/** A map the page embeds or links to. The signal that an address beside it is
+ *  meant to be FOUND, rather than mentioned in a sentence. */
+const MAP_TARGET =
+  /<iframe[^>]+src=["'][^"']*(?:google\.[a-z.]+\/maps|maps\.google|openstreetmap\.org|kartor\.eniro)[^"']*["']|<a[^>]+href=["'][^"']*(?:google\.[a-z.]+\/maps|maps\.app\.goo\.gl)[^"']*["']/gi;
+
+/**
+ * One printed line that is a whole Swedish address: a street with a house
+ * number, a postcode, and optionally the town. Anchored on purpose - the loose
+ * "a postcode appears somewhere" reading matched the phone number
+ * "08-545 875 00" on the dentist's contact page.
+ */
+const PRINTED_ADDRESS =
+  /^([\p{L}][\p{L}.'’\-\s]{2,48}?\s+\d+\s?[A-Za-z]?)\s*[,\s]\s*(\d{3}\s?\d{2})\s*,?\s*([\p{Lu}][\p{L}\-\s]{1,30})?$/u;
+
+/** A line about reaching someone, not about where they are. */
+const CONTACT_WORD = /\b(tel|telefon|phone|fax|mobil|e-?post|mail)\b/i;
+const PRINTED_PHONE = /(?:tel|telefon|phone)[:.\s]*((?:\+46|0)[\d\s\-()]{6,16}\d)/i;
+
+export type DetectedBranch = {
+  name?: string;
+  street: string;
+  postalCode: string;
+  city?: string;
+  phone?: string;
+  /** Where the address sits in the document, so the band holding it is not
+   *  also imported as a call-to-action band saying the same thing. */
+  at: number;
+};
+
+/**
+ * The addresses a page PRINTS, read from its own markup.
+ *
+ * The importer's `location` block has only ever been built from a declared
+ * address - schema.org, OpenGraph, or the scraped contact block - which is one
+ * address, and most small sites declare none. A restaurant with two places
+ * prints both, each next to its own map, and both arrived as call-to-action
+ * bands whose headline was the whole address run together with the phone
+ * number and the opening hours (backlog 2643, moggesushi).
+ *
+ * Every field is the source's own text. The reader is deliberately narrow: an
+ * address only counts when a map sits within a short window of it, the line
+ * has to parse as a whole address on its own, and a line naming a telephone or
+ * an e-mail is skipped rather than parsed. Returns the addresses in document
+ * order, deduplicated by street and postcode.
+ */
+export function detectPrintedBranches(html: string): DetectedBranch[] {
+  const { html: body, offset } = bodyOf(html);
+  const chrome = chromeRanges(body);
+  const out = new Map<string, DetectedBranch>();
+  for (const map of body.matchAll(MAP_TARGET)) {
+    const mapAt = map.index ?? 0;
+    if (inChrome(mapAt, chrome)) continue;
+    // The address is printed above its map far more often than below it, so the
+    // window leans backwards. Both sides are read: two of the eleven client
+    // sites put the caption under the frame.
+    const from = Math.max(0, mapAt - 1200);
+    const window = body.slice(from, mapAt + 600);
+    const lines = window
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|td|h[1-6]|li|a|strong|em|font|span)>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .split("\n")
+      .map((line) => decode(line).replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (CONTACT_WORD.test(line)) continue;
+      const parsed = line.match(PRINTED_ADDRESS);
+      if (!parsed) continue;
+      const above = lines.slice(Math.max(0, i - 3), i);
+      const street = parsed[1].trim().slice(0, 120);
+      const postalCode = parsed[2].replace(/\s+/, " ");
+      const key = `${street.toLowerCase()}|${postalCode}`;
+      if (out.has(key)) continue;
+      const city = (parsed[3] ?? "").trim();
+      // The name is the nearest line above that is neither an address nor a way
+      // of contacting someone: "MOGGE SUSHI ÖSTERMALM" over its own address.
+      const name = [...above]
+        .reverse()
+        .find(
+          (candidate) =>
+            !CONTACT_WORD.test(candidate) &&
+            !PRINTED_ADDRESS.test(candidate) &&
+            candidate.length > 2 &&
+            candidate.length <= 60,
+        );
+      out.set(key, {
+        ...(name ? { name: name.slice(0, 60) } : {}),
+        street,
+        postalCode,
+        ...(city ? { city: city.slice(0, 80) } : {}),
+        ...(above.map((l) => l.match(PRINTED_PHONE)?.[1]).find(Boolean)
+          ? { phone: above.map((l) => l.match(PRINTED_PHONE)?.[1]).find(Boolean)!.trim().slice(0, 40) }
+          : {}),
+        // The postcode's own digits, which survive entity decoding, so branches
+        // come back in the order the page prints them rather than in map order.
+        at: offset + from + Math.max(0, window.indexOf(postalCode)),
+      });
+    }
+  }
+  return [...out.values()].sort((a, b) => a.at - b.at);
+}
+
+export type DetectedOpeningHours = {
+  heading?: string;
+  at?: number;
+  days: Array<{ day: OpeningDayKey; closed: boolean; open?: string; close?: string }>;
+  /** The source lines this was read from, so the prose bands can claim them and
+   *  the page does not print its hours twice. */
+  claimed: string[];
+};
+
+/** A heading that announces hours, used as the section's own heading rather
+ *  than the label we would otherwise invent. */
+const HOURS_HEADING = /(öppettider|oppettider|öppet\b|opening\s+hours|our\s+hours|hours)/i;
+
+/**
+ * Opening hours a page prints as ordinary text.
+ *
+ * The document is flattened to one line per element so a day in its own cell
+ * stays next to the time in the cell beside it, which is how nearly every one
+ * of these tables is marked up. A day range ("Mån - Fre 08:00-17:00") expands
+ * across the days it names; a day named twice keeps the FIRST reading, because
+ * a page that lists Monday in a table and again in a footer strip means the
+ * table.
+ *
+ * Returns null below two distinct days with a time. One day and one range is a
+ * sentence about a holiday, not a week.
+ */
+export function detectOpeningHours(html: string): DetectedOpeningHours | null {
+  const body = bodyOf(html);
+  const chrome = chromeRanges(html);
+  // One line per element, so "Måndag" and "08:00-18:00" in adjacent cells are
+  // adjacent lines rather than one run - and so a day in one paragraph cannot
+  // pair with a time three paragraphs later.
+  const found = new Map<OpeningDayKey, { open?: string; close?: string }>();
+  const claimed: string[] = [];
+  let at: number | undefined;
+
+  // Chrome is blanked, not skipped afterwards: nearly every one of these sites
+  // repeats its hours in the site footer, so scanning the whole document gave
+  // every page an opening-hours block and cost more in precision than the one
+  // real block gained. A footer's hours belong to the site, not to this page.
+  let scanned = body.html;
+  for (const [start, end] of chromeRanges(body.html)) {
+    scanned = scanned.slice(0, start) + " ".repeat(end - start) + scanned.slice(end);
+  }
+
+  const flat = decode(scanned.replace(/<[^>]+>/g, "\n"))
+    .replace(/[   ]/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join(" | ");
+
+  for (const m of flat.matchAll(HOURS_RE)) {
+    const from = DAY_BY_WORD.get(m[1].toLowerCase());
+    if (!from) continue;
+    const to = m[2] ? DAY_BY_WORD.get(m[2].toLowerCase()) : undefined;
+    const closed = Boolean(m[7]) && CLOSED_WORD.test(m[7]);
+    const open = m[3] && m[4] ? clock(m[3], m[4]) : null;
+    const close = m[5] && m[6] ? clock(m[5], m[6]) : null;
+    if (!closed && (!open || !close)) continue;
+
+    const start = DAY_ORDER.indexOf(from);
+    const endIndex = to ? DAY_ORDER.indexOf(to) : start;
+    // A backwards range ("Sön - Mån") wraps the week; a range longer than the
+    // week is not a range at all.
+    const span: OpeningDayKey[] = [];
+    for (let i = 0; i < DAY_ORDER.length; i++) {
+      const day = DAY_ORDER[(start + i) % DAY_ORDER.length];
+      span.push(day);
+      if (DAY_ORDER[(start + i) % DAY_ORDER.length] === DAY_ORDER[endIndex]) break;
+    }
+    for (const day of span) {
+      if (found.has(day)) continue;
+      found.set(day, closed ? {} : { open: open ?? undefined, close: close ?? undefined });
+    }
+    claimed.push(m[0].trim());
+  }
+
+  const withTime = [...found.values()].filter((v) => v.open && v.close).length;
+  if (found.size < 2 || withTime < 1) return null;
+
+  // The heading that announces them, and where it sat, so the block lands where
+  // the source put its hours instead of at the end of the ladder.
+  const headingMatch = [...body.html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)].find((h) =>
+    HOURS_HEADING.test(text(h[2])),
+  );
+  const heading = headingMatch ? text(headingMatch[2]).slice(0, 80) : undefined;
+  if (headingMatch) {
+    const headingAt = body.offset + (headingMatch.index ?? 0);
+    if (!inChrome(headingAt, chrome)) at = headingAt;
+  }
+
+  return {
+    ...(heading ? { heading } : {}),
+    ...(at !== undefined ? { at } : {}),
+    days: DAY_ORDER.map((day) => {
+      const hit = found.get(day);
+      return hit && hit.open && hit.close
+        ? { day, closed: false, open: hit.open, close: hit.close }
+        : { day, closed: true };
+    }),
+    claimed,
+  };
+}
+
+
+// --- a roster of people ------------------------------------------------------
+//
+// Why this exists, measured. `teamMembersUnder` is gated on a heading it
+// recognises ("Vårt team", "Medarbetare", "Our team") plus subheadings under
+// it. A real staff page usually satisfies neither: the dentist's roster is
+// titled "Vi som jobbar här" and every person is their own repeated card, so
+// the page imported as a highlights strip, a gallery of eight faces and a
+// paragraph - 0% body fidelity against a truth label of one `team` block
+// (backlog 2643). Eight portraits torn away from the eight names beside them is
+// also the worst kind of loss: the page still looks full and says nothing.
+//
+// The gate here is STRUCTURE plus the shape of a person's name, never wording,
+// which is the whole point: a roster in Polish, or titled "Vilka är vi", reads
+// exactly the same to this.
+
+/**
+ * Where the element opening at `at` closes, by depth.
+ *
+ * Returns the end of the document when the tag never balances, which is the
+ * safe direction: an unbalanced roster card is one that ran to the end of the
+ * page anyway.
+ */
+function closingTagEnd(html: string, at: number, tag: string): number {
+  const pattern = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
+  pattern.lastIndex = at;
+  let depth = 0;
+  for (let m = pattern.exec(html); m; m = pattern.exec(html)) {
+    if (m[1] === "/") {
+      depth--;
+      if (depth === 0) return m.index + m[0].length;
+    } else if (!/\/>\s*$/.test(m[0])) {
+      depth++;
+    }
+  }
+  return html.length;
+}
+
+/** Markers that mean a picture is furniture rather than a portrait. */
+const TEAM_NON_PHOTO = /(icon|logo|sprite|favicon|badge|symbol|pixel|spacer|placeholder)/i;
+
+/** Lowercase particles a Swedish or European surname legitimately carries. */
+const NAME_PARTICLE = /^(af|av|de|del|della|der|di|do|dos|du|la|le|van|von|zu)$/;
+
+/**
+ * Does this read as a person's NAME rather than a product or a sentence?
+ *
+ * Two to four words, each starting with a capital (a hyphenated surname counts
+ * once), no digits and no sentence punctuation. It is what separates "Ahmed
+ * Al-Karwi" from "Restoring volume and creating definition", and it is doing
+ * the work a keyword list would otherwise do badly in one language.
+ */
+/**
+ * Two limits here are deliberate, and both were raised in review (2026-08-18).
+ *
+ * A ONE-WORD name is refused. A mononym is a real name, but a single
+ * capitalised word is also every product, service and category label on the
+ * web, and this gate is the only thing standing between a promo row and three
+ * invented members of staff. The cost is a roster that lists first names only.
+ *
+ * A script with NO CASE - Arabic, Hebrew, CJK, Thai - is refused too, because
+ * the capital test cannot see a capital there. A cased script whose capitals
+ * differ from its lowercase, Cyrillic and Greek included, passes normally. The
+ * importer's own copy speaks sv/en/pl and no corpus page exercises the
+ * caseless path; loosening it without evidence would trade a missing roster for
+ * an invented one, which is the worse of the two.
+ */
+export function looksLikePersonName(value: string): boolean {
+  const text = value.trim();
+  if (text.length < 4 || text.length > 40) return false;
+  if (/[0-9]/.test(text)) return false;
+  // Punctuation ANYWHERE, not only at the end. A screen-reader-only heading
+  // often reads "Carolina Carholt, Tandläkare", which is three capitalised
+  // words and would otherwise pass as a name with the job title glued on.
+  if (/[.!?,:;]/.test(text)) return false;
+  const words = text.split(/\s+/);
+  if (words.length < 2 || words.length > 4) return false;
+  return words.every((word) => {
+    if (NAME_PARTICLE.test(word)) return true;
+    const first = word[0];
+    return first !== undefined && first === first.toLocaleUpperCase() && first !== first.toLocaleLowerCase();
+  });
+}
+
+/** A line under a name that reads as a job title: short, and not a sentence.
+ *  A trailing full stop is allowed because "Leg. Tandläkare" carries one. */
+function looksLikeJobTitle(value: string): boolean {
+  return value.length >= 2 && value.length <= 40 && !/[!?]$/.test(value);
+}
+
+export type DetectedTeam = {
+  at: number;
+  heading?: string;
+  members: Array<{ name: string; role?: string; photoUrl?: string }>;
+};
+
+/** Below three, a repeat is a coincidence. A two-person business writes its two
+ *  people as prose far more often than as a card grid. */
+const TEAM_MIN_MEMBERS = 3;
+
+/**
+ * A roster of people, read from a repeated card rather than from a heading.
+ *
+ * The card is found the same way `findRepeat` finds one: three or more sibling
+ * elements sharing their first class token. Inside each, the name is the FIRST
+ * heading that reads as a person's name - which matters, because a real page
+ * often carries two headings per card (a screen-reader-only "Carolina Carholt,
+ * Tandläkare" above the visible "Carolina Carholt") and the tidy one is not
+ * always first in the markup.
+ *
+ * Two acceptance conditions beyond the name shape, either of which is enough,
+ * because a services grid can also be Title Case:
+ *
+ *   • a role line REPEATS across cards ("Leg. Tandläkare" under three of the
+ *     eight), which a list of distinct services essentially never does; or
+ *   • every card carries a photo, which is what a roster is.
+ */
+export function detectTeamCards(html: string, baseUrl: string): DetectedTeam | null {
+  const body = bodyOf(html);
+  const chrome = chromeRanges(body.html);
+
+  const byClass = new Map<string, number[]>();
+  for (const m of body.html.matchAll(/<(article|div|li)\b[^>]*class=["']([^"']+)["'][^>]*>/gi)) {
+    const first = m[2].trim().split(/\s+/)[0];
+    if (!first) continue;
+    const at = m.index ?? 0;
+    if (inChrome(at, chrome)) continue;
+    const key = `${m[1].toLowerCase()}.${first}`;
+    const seen = byClass.get(key);
+    if (seen) seen.push(at);
+    else byClass.set(key, [at]);
+  }
+
+  let best: DetectedTeam | null = null;
+  for (const [key, hits] of byClass) {
+    if (hits.length < TEAM_MIN_MEMBERS) continue;
+    const members: Array<{ name: string; role?: string; photoUrl?: string }> = [];
+    const roles: string[] = [];
+    let withPhoto = 0;
+
+    // The LAST card has no next sibling to end it, so slicing to the end of the
+    // document hands it everything after the roster - which is how the eighth
+    // dentist, the one with no portrait yet, was given the page's partner logo
+    // as her photograph. Its own closing tag is where it ends: a width estimated
+    // from the cards before it only happens to exclude the logo, and would still
+    // have reached an ordinary photograph sitting a little closer. (2643)
+    const tag = key.split(".")[0];
+    for (let i = 0; i < hits.length; i++) {
+      const end = hits[i + 1] ?? closingTagEnd(body.html, hits[i], tag);
+      const card = body.html.slice(hits[i], end);
+      const headings = [...card.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)].map((h) =>
+        text(h[2]),
+      );
+      const name = headings.find((h) => looksLikePersonName(h));
+      // Every card has to be a person. A grid where the fourth tile is "Join
+      // the team" or a service is not a roster, and taking the first three
+      // would publish a staff list that is missing whoever came after.
+      if (!name) break;
+      const lines = card
+        .replace(/<h([1-6])\b[^>]*>[\s\S]*?<\/h\1>/gi, " ")
+        .replace(/<a\b[^>]*>[\s\S]*?<\/a>/gi, " ")
+        .split(/<\/(?:p|div|span|li|td)\s*>|<br\s*\/?>/i)
+        .map((line) => text(line))
+        .filter((line) => line.length > 0 && line !== name);
+      const role = lines.find((line) => looksLikeJobTitle(line));
+      // A logo or an icon is not somebody's face. Same list the band builders
+      // use, and it earns its keep here: the roster's last card fell back to the
+      // group's partner logo before this.
+      const photo = [...card.matchAll(/<img\b[^>]*>/gi)]
+        .filter((img) => !TEAM_NON_PHOTO.test(img[0]))
+        .map((img) => img[0].match(/\ssrc=["']([^"']+)["']/i)?.[1])
+        .find((src): src is string => Boolean(src));
+      let photoUrl: string | undefined;
+      if (photo) {
+        const abs = absolute(decode(photo), baseUrl);
+        if (abs && !/^data:/i.test(abs) && !/\.svg(?:$|[?#])/i.test(abs)) {
+          photoUrl = abs;
+          withPhoto++;
+        }
+      }
+      if (role) roles.push(role);
+      members.push({ name, ...(role ? { role } : {}), ...(photoUrl ? { photoUrl } : {}) });
+    }
+
+    if (members.length < TEAM_MIN_MEMBERS || members.length !== hits.length) continue;
+
+    // A services grid can be Title Case too, and a three-card promo row with a
+    // photo on each tile passes everything above: "Botox Treatments" / "Filler
+    // Treatments" / "Skin Care" imported as three members of staff, which is not
+    // a layout mistake but invented people on a real business's website.
+    //
+    // What separates them is that a product range shares a NOUN and a roster
+    // does not. More than half the names carrying one word in common is a
+    // catalogue. Half rather than any, so two colleagues who share a surname
+    // still arrive.
+    const wordShare = new Map<string, number>();
+    for (const member of members) {
+      for (const word of new Set(
+        member.name
+          .toLocaleLowerCase()
+          .split(/[\s-]+/)
+          .filter((w) => w.length >= 3),
+      )) {
+        wordShare.set(word, (wordShare.get(word) ?? 0) + 1);
+      }
+    }
+    if ([...wordShare.values()].some((n) => n * 2 > members.length)) continue;
+
+    const roleRepeats = roles.length !== new Set(roles).size;
+    if (!roleRepeats && withPhoto < members.length) continue;
+    // The biggest roster on the page wins: a staff grid nested inside an outer
+    // wrapper matches on both class tokens, and the inner one is the people.
+    if (!best || members.length > best.members.length) {
+      const at = hits[0];
+      // The roster's own title: the nearest heading above the first card that
+      // is NOT one of the names. The dentist page calls it "Vi som jobbar här",
+      // which no keyword list would have found and which is the owner's word
+      // for it.
+      const above = [...body.html.matchAll(/<h([1-3])\b[^>]*>([\s\S]*?)<\/h\1>/gi)]
+        .filter((h) => (h.index ?? 0) < at)
+        .map((h) => text(h[2]))
+        .filter((h) => h.length > 1 && h.length <= 80 && !looksLikePersonName(h))
+        .pop();
+      best = { at: body.offset + at, ...(above ? { heading: above } : {}), members };
+    }
+  }
+
+  return best;
 }

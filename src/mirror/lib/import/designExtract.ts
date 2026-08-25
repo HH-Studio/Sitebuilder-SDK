@@ -48,6 +48,10 @@ export type ExtractedDesign = {
    *  usable colour and we fell back to neutral - the import must not then tell
    *  the owner "we kept your colour", because there wasn't one to keep. */
   brand: { L: number; C: number; H: number; hex: string; detected: boolean };
+  /** The site's second colour, when it had one. Reported so the import receipt
+   *  can say "we kept your blue AND your coral" rather than leaving the owner to
+   *  notice one of them missing. Absent on the great majority of sites. */
+  accentHex?: string;
   fonts: { heading: string; body: string; display?: string };
   /** Present when the source page loads its typefaces from an Adobe Fonts kit.
    *  The import then registers the REAL families against that kit instead of
@@ -326,16 +330,73 @@ const FRAMEWORK_DEFAULTS = new Set([
  *  prominently. Neutrals (grey/near-white/near-black) are excluded, and stock
  *  framework accents are demoted below any real brand colour. */
 export function pickBrandColor(css: string | string[]): { rgb: RGB; hex: string } | null {
-  let best: { rgb: RGB; hex: string; score: number } | null = null;
+  return rankBrandColors(css)[0] ?? null;
+}
+
+/** How far apart two hues must be before the second one is a DIFFERENT colour
+ *  rather than a shade of the first. 40 degrees is about the point where a
+ *  person stops calling both "the blue one" — a navy and a royal blue sit well
+ *  inside it, a blue and a teal sit on the edge, a blue and a coral do not. */
+const SECOND_HUE_MIN_DELTA = 40;
+
+/** A second colour has to be genuinely used, not a stray. Below this share of
+ *  the leader's score it is one designer's one-off border and promoting it to a
+ *  site-wide accent would be louder than the site is. */
+const SECOND_MIN_SCORE_SHARE = 0.15;
+
+/** Circular hue distance in degrees. */
+function hueDelta(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+/**
+ * The page's brand colours, best first.
+ *
+ * Same scoring `pickBrandColor` always used; it is exported as a list so a
+ * SECOND accent can be found. Sites routinely carry two: a brand blue for the
+ * furniture and a coral for the calls to action, and deriving all thirteen
+ * surface tokens from one hue loses the coral entirely.
+ */
+export function rankBrandColors(
+  css: string | string[],
+): Array<{ rgb: RGB; hex: string; score: number }> {
+  const scored: Array<{ rgb: RGB; hex: string; score: number }> = [];
   for (const hit of collectColors(css)) {
     const { L, C } = rgbToOklch(hit.rgb);
     if (C < 0.05) continue; // neutral
     if (L < 0.2 || L > 0.9) continue; // too dark / too light to be an accent
     let score = hit.weight * (0.5 + C); // frequency+context, biased by saturation
     if (FRAMEWORK_DEFAULTS.has(hit.hex)) score *= 0.01; // demote stock defaults
-    if (!best || score > best.score) best = { rgb: hit.rgb, hex: hit.hex, score };
+    scored.push({ rgb: hit.rgb, hex: hit.hex, score });
   }
-  return best ? { rgb: best.rgb, hex: best.hex } : null;
+  return scored.sort((a, b) => b.score - a.score);
+}
+
+/**
+ * The site's SECOND colour, when it genuinely has one.
+ *
+ * Returns null far more often than not, and that is the point: most small
+ * business sites have one colour, and inventing a second would put a hue on
+ * their page that nobody chose. It has to clear three bars — a different hue
+ * from the leader, a real share of its score, and enough chroma to read as a
+ * colour at all.
+ */
+export function pickSecondAccent(
+  css: string | string[],
+): { rgb: RGB; hex: string } | null {
+  const ranked = rankBrandColors(css);
+  const leader = ranked[0];
+  if (!leader) return null;
+  const leadHue = rgbToOklch(leader.rgb).H;
+  for (const candidate of ranked.slice(1)) {
+    if (candidate.score < leader.score * SECOND_MIN_SCORE_SHARE) break;
+    const { C, H } = rgbToOklch(candidate.rgb);
+    if (C < 0.07) continue;
+    if (hueDelta(H, leadHue) < SECOND_HUE_MIN_DELTA) continue;
+    return { rgb: candidate.rgb, hex: candidate.hex };
+  }
+  return null;
 }
 
 // ---- surface generation ---------------------------------------------------
@@ -420,7 +481,20 @@ function fillLForContrast(startL: number, chroma: number, hue: number, fg: RGB):
   return startL;
 }
 
-export function surfacesFromBrand(rgb: RGB): Pick<Palette, "light" | "dark"> {
+export function surfacesFromBrand(
+  rgb: RGB,
+  /** The site's SECOND colour, when it has one (`pickSecondAccent`). Only the
+   *  `accent` pair takes its hue; the primary fill, the paper, the ink and the
+   *  borders all stay on the brand hue, so a site keeps one voice and gains a
+   *  highlight rather than becoming two-tone.
+   *
+   *  Its LIGHTNESS and CHROMA are deliberately not taken from the source. The
+   *  accent pair's contrast comes from the large lightness gap between the two
+   *  tokens (0.94 against 0.35 on paper), which is what keeps it AA-safe on
+   *  every hue; borrowing a source colour's own lightness would put that
+   *  guarantee in the hands of whatever hex somebody happened to pick. */
+  accentRgb?: RGB,
+): Pick<Palette, "light" | "dark"> {
   const { L, C, H } = rgbToOklch(rgb);
   const chroma = Math.min(C, 0.16); // cap so fills never scream
 
@@ -429,6 +503,12 @@ export function surfacesFromBrand(rgb: RGB): Pick<Palette, "light" | "dark"> {
   // carries white text, exactly like `ocean`/`midnight`. Warm hues (yellow/
   // amber/lime) can't go deep without turning muddy, so they stay light and
   // take near-black text, like `amber`.
+  // The accent pair's hue, which is the second colour when the site has one and
+  // the brand hue otherwise. Everything else on both surfaces stays on `H`.
+  const accentOklch = accentRgb ? rgbToOklch(accentRgb) : null;
+  const accentH = accentOklch ? accentOklch.H : H;
+  const accentChroma = accentOklch ? Math.min(accentOklch.C, 0.16) : chroma;
+
   const isWarmLight = H >= 40 && H <= 110 && L > 0.6;
   const startFillL = isWarmLight ? Math.min(L, 0.66) : Math.max(0.4, Math.min(L, 0.55));
   const primaryFgLight = isWarmLight ? oklch(0.2, 0.03, H) : oklch(0.99, 0, 0);
@@ -455,8 +535,8 @@ export function surfacesFromBrand(rgb: RGB): Pick<Palette, "light" | "dark"> {
     primary: oklch(fillL, chroma, H),
     primaryFg: primaryFgLight,
     ...(primaryText ? { primaryText } : {}),
-    accent: oklch(0.94, Math.min(chroma, 0.03), H),
-    accentFg: oklch(0.35, Math.min(chroma, 0.09), H),
+    accent: oklch(0.94, Math.min(accentChroma, 0.03), accentH),
+    accentFg: oklch(0.35, Math.min(accentChroma, 0.09), accentH),
     border: oklch(0.92, 0.012, H),
     card: oklch(1, 0, 0),
     cardFg: oklch(0.22, 0.03, H),
@@ -475,8 +555,8 @@ export function surfacesFromBrand(rgb: RGB): Pick<Palette, "light" | "dark"> {
       H,
     ),
     primaryFg: oklch(0.2, 0.04, H),
-    accent: oklch(0.33, 0.05, H),
-    accentFg: oklch(0.97, 0.012, H),
+    accent: oklch(0.33, 0.05, accentH),
+    accentFg: oklch(0.97, 0.012, accentH),
     border: "oklch(1 0 0 / 13%)",
     card: oklch(0.27, 0.04, H),
     cardFg: oklch(0.97, 0.012, H),
@@ -944,8 +1024,14 @@ export function extractDesign(
   const brand = pickBrandColor(sheets);
   const rgb = brand?.rgb ?? { r: 39, g: 39, b: 42 }; // fallback: neutral slate-ish
   const { L, C, H } = rgbToOklch(rgb);
+  // A site's SECOND colour, when it genuinely has one. Only the accent pair
+  // takes its hue - see `surfacesFromBrand`. Null on most sites, which is the
+  // honest answer: inventing a second colour would put a hue on somebody's page
+  // that nobody chose.
+  const second = brand ? pickSecondAccent(sheets) : null;
   return {
-    palette: surfacesFromBrand(rgb),
+    palette: surfacesFromBrand(rgb, second?.rgb),
+    ...(second ? { accentHex: second.hex } : {}),
     brand: {
       L: round(L),
       C: round(C),

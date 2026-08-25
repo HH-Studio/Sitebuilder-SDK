@@ -2,6 +2,8 @@
 // Do not edit. Run `bun scripts/mirror-import.ts --sync-from-app <appRoot>`.
 
 import { decodeHtmlEntities } from "../html/entities";
+import { canonicalDocumentMime } from "../uploads/documentTypes";
+import { attributeValue, metaTag } from "../html/attributes";
 import { extractFromHtml, pageTitleFromDocumentTitle } from "../scrape/parse";
 import {
   extractDesign,
@@ -16,7 +18,19 @@ import type { SectionLayout } from "../../../convex/model/sections";
 import type { ThemeTokens } from "../../../convex/model/theme";
 import { GOOGLE_FONTS, findGoogleFont, type GoogleFont } from "../../../lib/fonts/google";
 import { SECTION_REGISTRY } from "../../../lib/sections/registry";
-import { observeBlock } from "./layoutObserve";
+import { observeBlock, withoutChrome } from "./layoutObserve";
+import {
+  applySectionProposals,
+  bandsOf,
+  PROPOSAL_CONFIDENCE_FLOOR,
+  type AppliedProposal,
+  type SectionProposal,
+} from "./sectionProposal";
+import {
+  buildFromBand,
+  buildLinkGrid,
+  CONTACT_DETAIL as CONTACT_DETAIL_HEADING,
+} from "./bandContent";
 import { initialKeys } from "../../../lib/editor/fractionalIndex";
 import type { PortableSiteV1 } from "../../../convex/model/portable";
 import {
@@ -54,11 +68,15 @@ import {
   detectInstagram,
   detectLegal,
   detectLooseList,
+  detectOpeningHours,
+  detectPrintedBranches,
   detectRichTextBlocks,
   detectScrollTabs,
   detectSocialProof,
+  detectTeamCards,
   proseKey,
   type DetectedCtaAction,
+  CONSENT_TEXT,
 } from "./structureDetect";
 
 // ---------------------------------------------------------------------------
@@ -89,6 +107,8 @@ const COPY = {
     faq: "Vanliga frågor",
     video: "Se filmen",
     findUs: "Hitta hit",
+    hours: "Öppettider",
+    team: "Vi som jobbar här",
     certifications: "Certifieringar",
     partners: "Vi samarbetar med",
     // Matches `lib/sections/registry.ts` newsletter defaults, so an imported
@@ -98,7 +118,7 @@ const COPY = {
     newsletter: "Håll dig uppdaterad",
     newsletterPlaceholder: "Din e-post",
     newsletterSubmit: "Prenumerera",
-    newsletterSuccess: "Tack! Du är anmäld.",
+    newsletterSuccess: "Tack! Bekräfta via mejlet vi just skickade.",
     documents: "Dokument",
     comparison: "Jämförelse",
     booking: "Boka tid",
@@ -125,12 +145,14 @@ const COPY = {
     faq: "FAQ",
     video: "Watch the video",
     findUs: "Find us",
+    hours: "Opening hours",
+    team: "The people here",
     certifications: "Certifications",
     partners: "We work with",
     newsletter: "Stay in the loop",
     newsletterPlaceholder: "Your email",
     newsletterSubmit: "Subscribe",
-    newsletterSuccess: "Thanks! You’re signed up.",
+    newsletterSuccess: "Thanks! Confirm using the email we just sent.",
     documents: "Documents",
     comparison: "Compare",
     booking: "Book a time",
@@ -156,16 +178,60 @@ function detectLocale(html: string): "sv" | "en" {
   return m && /^en/i.test(m[1]) ? "en" : "sv";
 }
 
+/**
+ * A heading the visitor cannot see: a screen-reader-only label, an
+ * `aria-hidden` decoration, or an element carrying the `hidden` attribute.
+ *
+ * These are not the owner's writing. A CMS puts one above every landmark so a
+ * screen reader can announce it, and the dentist's pages carry eleven of them
+ * per page: "Tillganglighetsmeny", "Huvudmeny", "Kontaktfalt", "Snabblankar",
+ * "Sidfot". Read as content they became a leading card list titled "Det vi
+ * gor" whose three cards were the accessibility menu, the main menu and the
+ * contact field, on all six pages of that site. Importing an invisible label as
+ * a visible heading publishes words the owner never put on their page, which is
+ * the one thing this importer must not do. (2643)
+ */
+const HIDDEN_HEADING_ATTRS =
+  /\bclass\s*=\s*["'][^"']*\b(?:sr-only|visually-?hidden|hidden-visually|screen-?reader-(?:text|only)|a11y-hidden)\b|\baria-hidden\s*=\s*["']?true|\shidden(?=[\s>=])/i;
+
+const ANY_HEADING = /<(h[1-4])([^>]*)>([\s\S]*?)<\/\1>/gi;
+
+/**
+ * The headings a visitor can actually read.
+ *
+ * The same CMS that hides a landmark label also prints an `sr-only` copy of a
+ * REAL heading immediately above its visible twin, so "hidden" alone cannot
+ * decide. A hidden heading whose words appear again on a visible one is that
+ * heading, and dropping it cost the dentist's about page both of its body
+ * blocks. A hidden heading with no visible twin is chrome. (2643)
+ */
+function visibleHeadingTexts(html: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of html.matchAll(ANY_HEADING)) {
+    if (HIDDEN_HEADING_ATTRS.test(m[2] ?? "")) continue;
+    const text = stripTags(m[3]);
+    if (text.length > 1) out.add(text.toLowerCase());
+  }
+  return out;
+}
+
+function isChromeHeading(attrs: string, text: string, visible: ReadonlySet<string>): boolean {
+  return HIDDEN_HEADING_ATTRS.test(attrs) && !visible.has(text.toLowerCase());
+}
+
 function headings(html: string, tag: "h1" | "h2"): string[] {
-  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "gi");
+  const re = new RegExp(`<${tag}([^>]*)>([\\s\\S]*?)<\\/${tag}>`, "gi");
+  const visible = visibleHeadingTexts(html);
   return [...html.matchAll(re)]
-    .map((m) => stripTags(m[1]))
+    .map((m) => ({ attrs: m[1] ?? "", text: stripTags(m[2]) }))
+    .filter((h) => !isChromeHeading(h.attrs, h.text, visible))
+    .map((h) => h.text)
     .filter((t) => t.length > 1 && t.length < 120);
 }
 
 /** Substantial paragraphs, each with where it sat in the document. */
 function paragraphsAt(html: string): Array<{ text: string; at: number }> {
-  return [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+  return [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
     .map((m) => ({ text: stripTags(m[1]), at: m.index ?? 0 }))
     .filter((p) => p.text.length >= 40);
 }
@@ -178,10 +244,15 @@ function paragraphs(html: string): string[] {
  *  can pair a heading with its nearby content. */
 function headingBlocks(html: string): Array<{ heading: string; body: string }> {
   const out: Array<{ heading: string; body: string }> = [];
-  const re = /<(h[234])[^>]*>([\s\S]*?)<\/\1>([\s\S]*?)(?=<h[1-4][\s>]|$)/gi;
+  const visible = visibleHeadingTexts(html);
+  const re = /<(h[234])([^>]*)>([\s\S]*?)<\/\1>([\s\S]*?)(?=<h[1-4][\s>]|$)/gi;
   for (const m of html.matchAll(re)) {
-    const heading = stripTags(m[2]);
-    if (heading.length > 1 && heading.length < 120) out.push({ heading, body: m[3] || "" });
+    // An invisible label is not a heading the owner wrote; see
+    // HIDDEN_HEADING_ATTRS. The body after it still belongs to whatever visible
+    // heading came before, so the pair is dropped rather than kept headless.
+    const heading = stripTags(m[3]);
+    if (isChromeHeading(m[2] ?? "", heading, visible)) continue;
+    if (heading.length > 1 && heading.length < 120) out.push({ heading, body: m[4] || "" });
   }
   return out;
 }
@@ -198,7 +269,7 @@ function detectFaq(html: string): Array<{ question: string; answer: string }> {
   if (items.length < 2) {
     for (const b of headingBlocks(html)) {
       if (!/\?\s*$/.test(b.heading)) continue;
-      const a = (b.body.match(/<p[^>]*>([\s\S]*?)<\/p>/i) || [, ""])[1];
+      const a = (b.body.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i) || [, ""])[1];
       const ans = stripTags(a);
       if (ans.length >= 20) items.push({ question: b.heading, answer: ans.slice(0, 600) });
     }
@@ -269,15 +340,8 @@ function detectPricing(html: string): {
  *  description, because each page has its own and Google shows each one. */
 function metaDescriptionOf(html: string): string | undefined {
   for (const key of ["description", "og:description"]) {
-    const k = key.replace(/[:]/g, "\\:");
-    const m =
-      html.match(
-        new RegExp(`<meta[^>]+(?:name|property)=["']${k}["'][^>]*content=["']([^"']*)["']`, "i"),
-      ) ??
-      html.match(
-        new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:name|property)=["']${k}["']`, "i"),
-      );
-    const value = m?.[1] ? decodeEntities(m[1]) : "";
+    const tag = metaTag(html, key);
+    const value = tag ? attributeValue(tag, "content") : undefined;
     if (value) return value;
   }
   return undefined;
@@ -334,8 +398,40 @@ const AREAS_HEADING =
 /** Headings that mean "here is where you find us". Used only as the INTENT
  *  signal for a location section — the address itself always comes from what
  *  the page actually declared, never from the heading. */
+/** A heading that says the prose under it is the business describing itself.
+ *  The only wording that entitles the sweep below to the "Om oss" label it
+ *  otherwise invents. */
+const ABOUT_HEADING =
+  /(om\s+(oss|mig|f(ö|o)retaget)|vilka\s+(vi|jag)\s+(är|ar)|v(å|a)r\s+(historia|ber(ä|a)ttelse|resa)|about\s+(us|me)|who\s+we\s+are|our\s+(story|history)|o\s+nas)/i;
+
 const FIND_US_HEADING =
   /(hitta\s+(hit|oss)|hitta\s+till\s+oss|bes(ö|o)ksadress|v(å|a)r\s+adress|var\s+finns\s+vi|hos\s+oss|find\s+us|visit\s+us|our\s+address|where\s+to\s+find\s+us|how\s+to\s+find\s+us)/i;
+
+/**
+ * A heading that names a piece of the PAGE rather than a piece of the business:
+ * the contact panel, the opening hours, the address block, the gallery strip,
+ * the newsletter box, the cookie notice.
+ *
+ * It exists for the leftover-heading card list, which prints whatever headings
+ * nothing else claimed under a heading of OURS - "Det vi gör" / "What we do".
+ * Over the fidelity corpus that produced four pages advertising "Kontakta oss"
+ * and "Öppettider" as two of the things a dental clinic does, and one
+ * advertising "GALLERI". The words are the owner's; the CLAIM around them is
+ * ours, and it is false. Same rule as the hidden-heading filter: never publish
+ * a sentence about the business that nobody wrote. (2643)
+ */
+const PAGE_FURNITURE_HEADING =
+  /^(kontakt(a\s+(oss|mig))?|kontaktuppgifter|(v(å|a)ra\s+)?(ö|o)ppettider|adress|bes(ö|o)ksadress|postadress|hitta\s+(hit|oss)|e-?post|mail|telefon|tel|galleri|bildgalleri|bilder|meny(n)?|hem|start(sidan?)?|sociala\s+medier|f(ö|o)lj\s+oss|nyhetsbrev|cookies?|till\s+toppen|s(ö|o)k|l(ä|a)nkar|navigation|contact(\s+us)?|opening\s+hours|hours|address|find\s+us|gallery|images|photos|home|follow\s+us|social(\s+media)?|newsletter|subscribe|search|links|top\s+of\s+page|menu)$/i;
+
+/** A leftover heading that names a piece of the BUSINESS rather than a piece of
+ *  the page. Furniture ("Kontakta oss", "Öppettider") and an address line
+ *  wearing a heading tag never reach the card list, and never count toward the
+ *  two-heading floor that decides whether the list is published at all - a page
+ *  whose only leftovers are its own contact panel publishes no list, which is
+ *  what the measurement asked for. (2643)
+ */
+const isOfferingHeading = (h: string) =>
+  !PAGE_FURNITURE_HEADING.test(h.trim()) && !CONTACT_DETAIL_HEADING.test(h);
 
 /** A Swedish postcode ("753 20" / "75320"), anywhere in an address line. */
 const SWEDISH_POSTCODE = /\b(\d{3}\s?\d{2})\b/;
@@ -495,7 +591,7 @@ export function detectNewsletter(html: string): DetectedNewsletter | null {
     )
     .pop();
   const intro = heading
-    ? [...html.slice(heading.at, at).matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+    ? [...html.slice(heading.at, at).matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
         .map((m) => stripTags(m[1]))
         .find((text) => text.length >= 20 && text.length <= 300)
     : undefined;
@@ -509,13 +605,37 @@ export function detectNewsletter(html: string): DetectedNewsletter | null {
 /** Embeds we actually carried should stop being counted as embeds we lost.
  *  Every `<iframe>` on the page is a dropped embed in the receipt, so importing
  *  the owner's presentation video and then telling them one embed did not come
- *  over is simply wrong. */
+ *  over is simply wrong.
+ *
+ *  The subtraction is kept alongside the count it made, because it is true of
+ *  the TYPED conversion only: the captured lane builds a different draft from
+ *  the same source and has to reconcile against the raw iframe count, or the
+ *  same embed is discounted twice (`lostEmbedCount` in importActions.ts). */
 function withCarriedEmbeds(
   signals: SourceSignals,
-  sections: ReadonlyArray<{ type: string }>,
+  sections: ReadonlyArray<{ type: string; pageTmpId?: string }>,
+  /** The page a capture would replace. Absent for a single-page conversion,
+   *  where the only page IS that page. */
+  homeTmpId?: string,
 ): SourceSignals {
-  const carried = sections.filter((s) => s.type === "video").length;
-  return carried > 0 ? { ...signals, embeds: Math.max(0, signals.embeds - carried) } : signals;
+  const videos = sections.filter((s) => s.type === "video");
+  const carried = videos.length;
+  if (carried === 0) return signals;
+  const counted = Math.min(carried, signals.embeds);
+  // Of those, the ones on the page a capture replaces. The captured draft keeps
+  // every OTHER page's typed sections, so a subpage's carried film is still a
+  // block in that draft and must not be added back as a raw iframe - see
+  // `lostEmbedCount` in importActions.ts.
+  const onHome =
+    homeTmpId === undefined
+      ? counted
+      : Math.min(videos.filter((s) => s.pageTmpId === homeTmpId).length, counted);
+  return {
+    ...signals,
+    embeds: Math.max(0, signals.embeds - carried),
+    embedsCarried: counted,
+    embedsCarriedHome: onHome,
+  };
 }
 
 /** A person's role line under their name ("Snickare", "VD", "Frisör"). Kept
@@ -563,7 +683,7 @@ function repeatedItemsUnder(
     )) {
       const title = stripTags(m[2]);
       if (title.length < 2 || title.length > 80) continue;
-      const para = stripTags((m[3].match(/<p[^>]*>([\s\S]*?)<\/p>/i) ?? [, ""])[1] ?? "");
+      const para = stripTags((m[3].match(/<p\b[^>]*>([\s\S]*?)<\/p>/i) ?? [, ""])[1] ?? "");
       items.push({ title: title.slice(0, 80), description: para.slice(0, 400) });
       if (items.length >= 9) break;
     }
@@ -686,14 +806,14 @@ class AssetRegistry {
   }
 
   /**
-   * Register a downloadable PDF (the `documents` section's assetRef).
+   * Register a downloadable file (the `documents` section's assetRef).
    *
    * Shares the image cap deliberately - it is one outbound-fetch budget, and a
    * page linking eighty PDFs should not be able to starve its own photography.
    * `width`/`height` are 0 because a document has no layout box; the commit
-   * path (`convex/portability.ts`) byte-sniffs `%PDF-` and drops anything that
-   * is not really a PDF, so a wrong `mimeType` here can only ever lose the
-   * file, never smuggle one in.
+   * path (`convex/portability.ts`) byte-sniffs the bytes against the type
+   * claimed here and drops anything that is not really that file, so a wrong
+   * `mimeType` can only ever lose the file, never smuggle one in.
    */
   registerDocument(url: string, title: string): string | null {
     const existing = this.byUrl.get(url);
@@ -710,7 +830,9 @@ class AssetRegistry {
       url,
       width: 0,
       height: 0,
-      mimeType: "application/pdf",
+      // From the URL's own extension. Wrong only loses the file (see above),
+      // and PDF is the right guess for a link with no extension at all.
+      mimeType: canonicalDocumentMime({ name: url }) ?? "application/pdf",
       kind: "document",
       alt: title,
     });
@@ -846,23 +968,126 @@ const textKey = proseKey;
 /** Every run of prose the sections built so far already show, so About does not
  *  repeat it. Walks the content objects rather than naming fields per section
  *  type, so a new detector is covered the day it is added. */
+function walkClaimed(value: unknown, out: Set<string>): void {
+  if (typeof value === "string") {
+    if (value.length >= 2) out.add(textKey(value));
+    // KNOWN, and deliberately not fixed here: a key is the first 80
+    // characters, so an `about` body that joins its paragraphs with a blank
+    // line only ever claims the FIRST one, and a rebuilt band can print the
+    // others a second time. Keying each paragraph separately does stop the
+    // repeat - and costs the band's subheadings, because the band then holds
+    // no unclaimed prose to hang them on and produces nothing at all. Showing
+    // a paragraph twice is visible to the owner and takes one click to fix;
+    // dropping their headings is invisible. The real fix is upstream, in what
+    // About sweeps in the first place. Backlog 2643.
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) walkClaimed(v, out);
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const v of Object.values(value)) walkClaimed(v, out);
+  }
+}
+
 function claimedText(built: BuiltSection[]): Set<string> {
   const out = new Set<string>();
-  const walk = (value: unknown) => {
+  for (const section of built) walkClaimed(section.content, out);
+  return out;
+}
+
+/** The same keys for ONE section's content, so a band that has just been filled
+ *  can be added to the claimed set before the next band is offered - otherwise
+ *  two adjacent unclaimed bands sharing a sentence both keep it. */
+function claimedTextOf(content: unknown): Set<string> {
+  const out = new Set<string>();
+  walkClaimed(content, out);
+  return out;
+}
+
+/** Every run of prose the draft SHOWS, as one lower-cased, whitespace-collapsed
+ *  string.
+ *
+ *  `claimedText` answers "did some section take this exact run", which is the
+ *  right question while bands compete for text. The last-resort sweep at the
+ *  end of `buildPageSections` asks a different one - "is this paragraph
+ *  anywhere on the draft at all" - and a key set cannot answer it, because a
+ *  joined `about` body keys only its first paragraph (see `walkClaimed`).
+ *  Searching the whole blob for the paragraph's key does answer it, and a false
+ *  "already shown" is the safe direction: the sweep stays silent rather than
+ *  printing a sentence twice. */
+function shownProse(built: BuiltSection[]): string {
+  const runs: string[] = [];
+  const walk = (value: unknown): void => {
     if (typeof value === "string") {
-      if (value.length >= 40) out.add(textKey(value));
+      runs.push(value);
       return;
     }
     if (Array.isArray(value)) {
       for (const v of value) walk(v);
       return;
     }
-    if (value && typeof value === "object") {
-      for (const v of Object.values(value)) walk(v);
-    }
+    if (value && typeof value === "object") for (const v of Object.values(value)) walk(v);
   };
   for (const section of built) walk(section.content);
+  // A NUL between runs, so a key can never be matched across two sections that
+  // happen to end and begin with the same words.
+  return runs.join("\u0000").replace(/\s+/g, " ").toLowerCase();
+}
+
+/** Where the page says its own content is: `<main>`, an `<article>`, or the
+ *  element it marked `role="main"`. Empty when the document declares none.
+ *
+ *  The last-resort sweep needs this and no other pass does, because everything
+ *  else works from bands the observer already found. A cookie bar, a `<dialog>`
+ *  and an `aria-hidden` scaffold all sit OUTSIDE the main element on a real
+ *  page, and the sweep's whole job is to pick up what nothing claimed - which
+ *  is exactly where that furniture would otherwise be found. */
+function mainRegions(html: string): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (const m of html.matchAll(/<(main|article)\b[^>]*>[\s\S]*?<\/\1>/gi)) {
+    const at = m.index ?? 0;
+    out.push([at, at + m[0].length]);
+  }
+  for (const m of html.matchAll(/<([a-z][\w-]*)\b[^>]*role=["']main["'][^>]*>[\s\S]*?<\/\1>/gi)) {
+    const at = m.index ?? 0;
+    out.push([at, at + m[0].length]);
+  }
   return out;
+}
+
+/** A cookie/consent bar's own words - the LINE ON THE BAR, not the subject.
+ *
+ *  Three gates, because every loose version of this rule deletes a real
+ *  business's writing: "kakor" alone is a bakery's product, "cookies" alone is
+ *  a recipe, and a consultancy that SELLS GDPR work writes the word all day.
+ *  So: the noun, then within two hundred characters the button the bar is
+ *  asking you to press, and the whole paragraph short enough to be a bar in the
+ *  first place. Structure does the rest of the work - see where this is used,
+ *  which is prose OUTSIDE the page's own `<main>`. */
+const CONSENT_LINE =
+  /\b(cookies?|kakor|gdpr|samtycke|consent)\b[\s\S]{0,200}\b(godk(ä|a)nn|acceptera|accept|till(å|a)t|inst(ä|a)llningar|avvisa|neka|manage|preferences)\b/i;
+
+/** A consent bar's line, at the length one actually is. */
+function looksLikeConsentBar(text: string): boolean {
+  return text.length <= 300 && CONSENT_LINE.test(text);
+}
+
+/** How many rescued blocks one page may add. A page of thirty headings is a
+ *  blog index, not thirty lost articles, and the sweep is a safety net rather
+ *  than a detector - past a handful it is guessing at scale. */
+const MAX_RESCUED_BLOCKS = 6;
+
+/** A picture's identity, ignoring the resize query a `srcset` appends. See the
+ *  `ownedIdentities` comment in `buildPageSections`. */
+function imageIdentity(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url.split("?")[0];
+  }
 }
 
 function inSourceOrder(input: BuiltSection[]): BuiltSection[] {
@@ -1031,7 +1256,7 @@ export function themeFromDesign(
   design: ExtractedDesign,
   fonts: ImportFonts,
   /** True when the source page actually animated (GSAP/AOS/Webflow/…). The
-   *  imported site then gets SnabbSajt's own scroll motion instead of landing
+   *  imported site then gets Snabbsite's own scroll motion instead of landing
    *  completely still - the source's real animations can't come over, but
    *  "your site used to move and now it doesn't" is the wrong default. A still
    *  source stays still. */
@@ -1108,11 +1333,32 @@ function buildPageSections(
    *  configured, or the pass failed) leaves the deterministic classification
    *  in place - see `applyVerdicts`. */
   verdicts?: ImageVerdicts,
+  /** Optional block proposals for THIS page, keyed by band index. Absent leaves
+   *  the deterministic detector ladder exactly as it was - see
+   *  `lib/import/sectionProposal.ts`. */
+  proposals?: ReadonlyMap<number, SectionProposal>,
+  /** Where to record what each proposal did, for the import report. */
+  proposalSink?: AppliedProposal[],
 ): BuiltSection[] {
   const meta = extractFromHtml(html, baseUrl);
   const t = COPY[locale];
   const name = (meta.businessName?.trim() || headings(html, "h1")[0] || t.heroFallback).slice(0, 120);
-  const paras = paragraphs(html);
+  // The document a VISITOR sees, not the raw markup: a `<template>`'s copy, a
+  // script-type template and a modal's text are not the owner's prose, and they
+  // used to arrive in the hero line and in "Om oss". Offsets are preserved (see
+  // `withoutChrome`), so `atOfParagraph` still finds every paragraph where the
+  // source has it.
+  const readable = withoutChrome(html);
+  // Prose the page puts OUTSIDE its own `<main>` is where a consent bar lives,
+  // and one was being published as a business's "Om oss". Structural, not
+  // lexical: a bakery writing about kakor inside its own main is untouched, and
+  // a page that declares no main is left alone entirely rather than guessed at.
+  const ownRegions = mainRegions(readable);
+  const outsideOwnContent = (at: number): boolean =>
+    ownRegions.length > 0 && !ownRegions.some(([start, end]) => at >= start && at < end);
+  const paras = paragraphsAt(readable)
+    .filter((p) => !(outsideOwnContent(p.at) && looksLikeConsentBar(p.text)))
+    .map((p) => p.text);
   const description = meta.description?.trim() || paras[0];
   // Every picture the page shows, classified. `rankedPhotos` drops furniture
   // (logos, badges, icons, texture) and orders what is left by how likely it is
@@ -1133,6 +1379,12 @@ function buildPageSections(
   // bathroom, which is what every import of a salon or a bygg site did until
   // now — the source's whole point, thrown away at the last step.
   const beforeAfter = detectBeforeAfter(html, baseUrl);
+  // A roster owns its portraits for the same reason a before/after pair owns
+  // its two pictures: the face and the name beside it ARE the content. Read
+  // before the pool is ranked, or eight staff photographs become a gallery of
+  // eight strangers and the eight names arrive somewhere else - which is
+  // exactly what the dentist's staff page imported as. (2643)
+  const teamCards = detectTeamCards(html, baseUrl);
   const ranked = rankedPhotos(candidates);
   // Pictures the SOURCE grouped as a gallery. An explicit grouping outranks our
   // ranking for one decision only — which photo the hero takes — because the
@@ -1152,9 +1404,20 @@ function buildPageSections(
     ...(instagram?.imageUrls ?? []),
     ...captioned.map((f) => f.url),
     ...(beforeAfter?.pairs.flatMap((p) => [p.beforeUrl, p.afterUrl]) ?? []),
+    ...(teamCards?.members.map((m) => m.photoUrl).filter((u): u is string => !!u) ?? []),
   ]);
+  // Two URLs that differ only by a resize query are the same photograph. A
+  // source's `srcset` hands us `...jpg?width=320` and `...jpg?width=1400`, so a
+  // band that owned one of them was still leaving the other in the pool: the
+  // dentist's roster arrived as a `team` block with eight faces AND a gallery of
+  // the same eight strangers, plus one of them in the hero. Comparing the path
+  // rather than the whole URL only ever NARROWS the pool, and only for pictures
+  // a band already owns. (2643)
+  const ownedIdentities = new Set([...ownedUrls].map(imageIdentity));
   const photos = (() => {
-    const free = ranked.filter((c) => !ownedUrls.has(c.url));
+    const free = ranked.filter(
+      (c) => !ownedUrls.has(c.url) && !ownedIdentities.has(imageIdentity(c.url)),
+    );
     if (!galleryGroup) return free;
     const grouped = new Set(galleryGroup);
     const loose = free.filter((c) => !grouped.has(c.url));
@@ -1169,8 +1432,14 @@ function buildPageSections(
    *  photo plus two orphans, and the same picture must not appear twice. */
   const heroYieldsToGallery =
     galleryGroup !== null &&
-    ranked.filter((c) => !ownedUrls.has(c.url) && !new Set(galleryGroup).has(c.url)).length === 0 &&
-    ranked.filter((c) => !ownedUrls.has(c.url)).length >= 3;
+    ranked.filter(
+      (c) =>
+        !ownedUrls.has(c.url) &&
+        !ownedIdentities.has(imageIdentity(c.url)) &&
+        !new Set(galleryGroup).has(c.url),
+    ).length === 0 &&
+    ranked.filter((c) => !ownedUrls.has(c.url) && !ownedIdentities.has(imageIdentity(c.url)))
+      .length >= 3;
   // Each image keeps the alt the SOURCE wrote. Falling back to the business name
   // on every image (the old behaviour) is worse than useless for a screen
   // reader: it says the same thing eight times and describes none of them.
@@ -1216,7 +1485,7 @@ function buildPageSections(
     const at = html.indexOf(heading.slice(0, 40));
     return at >= 0 ? at : undefined;
   };
-  const paraAt = paragraphsAt(html);
+  const paraAt = paragraphsAt(readable);
   const atOfParagraph = (text: string | undefined): number | undefined =>
     text === undefined ? undefined : paraAt.find((p) => p.text === text)?.at;
 
@@ -1331,6 +1600,13 @@ function buildPageSections(
 
   // Team - the people. Names only unless the line under a name is short enough
   // to be a job title rather than a sentence.
+  //
+  // Two ways in, because a real staff page satisfies neither gate reliably. The
+  // heading route below wants wording it recognises ("Vårt team", "Medarbetare")
+  // with subheadings under it. The card route wants a repeated card whose every
+  // tile holds a person's NAME - no wording at all - which is what a roster
+  // titled "Vi som jobbar här" actually looks like, and it carries the portrait
+  // and the job title the heading route has nowhere to read. (2643)
   const team = teamMembersUnder(html);
   if (team) {
     built.push({
@@ -1341,6 +1617,27 @@ function buildPageSections(
         type: "team",
         heading: team.heading,
         members: team.members,
+      },
+    });
+  } else if (teamCards) {
+    const members = teamCards.members.map((m) => {
+      const id = m.photoUrl ? registry.register(m.photoUrl, m.name) : null;
+      return {
+        name: m.name,
+        ...(m.role ? { role: m.role } : {}),
+        ...(id ? { photo: { assetId: id, alt: m.name } } : {}),
+      };
+    });
+    built.push({
+      type: "team",
+      at: teamCards.at,
+      // `cards` shows the portrait; `grid` is the layout for a roster without
+      // one, and a card with an empty photo slot is worse than a name.
+      variant: members.every((m) => m.photo) ? "cards" : "grid",
+      content: {
+        type: "team",
+        heading: teamCards.heading ?? t.team,
+        members,
       },
     });
   }
@@ -1677,7 +1974,9 @@ function buildPageSections(
     }
   }
 
-  const bodyByHeading = new Map(headingBlocks(html).map((b) => [b.heading, b.body]));
+  // `readable`, not `html`: a heading inside a `<template>` or a modal is not
+  // one of the owner's, and its body is not theirs either.
+  const bodyByHeading = new Map(headingBlocks(readable).map((b) => [b.heading, b.body]));
   const claimedHeadings = new Set(
     [
       services?.heading,
@@ -1702,28 +2001,16 @@ function buildPageSections(
     // A heading already rendered as its own section must not come back as a card.
     .filter((h) => !claimedHeadings.has(h.slice(0, 80)))
     .slice(0, 6);
-  if (h2.length >= 2) {
-    built.push({
-      type: "highlights",
-      at: atOfHeading(h2[0]),
-      content: {
-        type: "highlights",
-        heading: t.what,
-        items: h2.map((h) => {
-          const firstPara = stripTags(
-            (bodyByHeading.get(h)?.match(/<p[^>]*>([\s\S]*?)<\/p>/i) ?? [, ""])[1] ?? "",
-          );
-          return {
-            title: h.slice(0, 56),
-            // Empty stays empty rather than inventing a description: the
-            // renderer handles a title-only card, and a guessed sentence on
-            // someone's website is worse than a missing one.
-            description: firstPara.length >= 20 ? firstPara.slice(0, 240) : "",
-          };
-        }),
-      },
-    });
-  }
+  // Held, not pushed. Every heading here is one no DETECTOR claimed, and until
+  // the band-fill pass existed that made it leftover writing worth showing as a
+  // card. It is not any more: band-fill runs at the end of this function and
+  // rebuilds those same bands from their own markup, with the paragraphs, the
+  // lists and the links the card list never carried. Emitting both put the same
+  // five promos on the Sennberg home page twice - once as five real `cta-band`s
+  // and once as five title-only cards under "Det vi gör" - and cost precision on
+  // most pages of the corpus. So the decision moves to after band-fill, where
+  // "did anything already say this?" can actually be answered. (2643)
+  const leftoverHeadings = h2;
 
   // Pricing - >=2 headings carrying a price token become a real pricing table
   // (instead of being flattened into prose).
@@ -1890,6 +2177,51 @@ function buildPageSections(
       at: atOfHeading(headings(html, "h2").find((h) => FIND_US_HEADING.test(h))),
       content: { type: "location", heading: t.findUs, address: postal },
     });
+  } else {
+    // A business with more than one place, read from what the page PRINTS.
+    //
+    // The path above needs a DECLARED address, and it can only ever hold one.
+    // Most small sites declare none, and the ones with two places print both,
+    // each beside its own map. The restaurant in the fidelity corpus arrived as
+    // two call-to-action bands whose headline was a whole address run together
+    // with the phone number and the opening hours, which is neither an address
+    // an owner can edit nor a block anyone would keep. (2643)
+    //
+    // Two or more, on purpose. One printed address is the visiting address the
+    // contact block and the footer already carry, and promoting it to a section
+    // of its own on every page that shows a map costs more than it gives; the
+    // `branches` variant exists for exactly the several-places case (owner
+    // directive 2026-08-16). Nothing is invented: each branch carries the
+    // source's own name, street, postcode, town and phone.
+    const printed = detectPrintedBranches(html);
+    if (printed.length >= 2) {
+      built.push({
+        type: "location",
+        at: printed[0].at,
+        // Only this variant draws the branch boxes; the default cut renders the
+        // primary address alone, so shipping the branches without it would
+        // store both places and show one.
+        variant: "branches",
+        content: {
+          type: "location",
+          heading: t.findUs,
+          address: {
+            street: printed[0].street,
+            postalCode: printed[0].postalCode,
+            ...(printed[0].city ? { city: printed[0].city } : {}),
+          },
+          branches: printed.slice(0, 6).map((branch) => ({
+            ...(branch.name ? { name: branch.name } : {}),
+            address: {
+              street: branch.street,
+              postalCode: branch.postalCode,
+              ...(branch.city ? { city: branch.city } : {}),
+            },
+            ...(branch.phone ? { phone: branch.phone } : {}),
+          })),
+        },
+      });
+    }
   }
 
   // Opening hours, from the page's own schema.org `openingHoursSpecification`.
@@ -1918,6 +2250,28 @@ function buildPageSections(
         }),
       },
     });
+  } else {
+    // Hours the page prints as ORDINARY TEXT, which is how nearly every small
+    // business writes them. Only when the machine-readable ones are absent, so
+    // a source that declared its hours properly still wins: a table can be
+    // stale in a way `openingHoursSpecification` usually is not.
+    //
+    // Measured: this is a whole labelled block the corpus produced nothing for.
+    // The dentist's contact page scored 0% body fidelity with "Måndag
+    // 08:00-18:00" printed five times in its own markup, and hours are the one
+    // fact a visitor is most often on the page to find. (2643)
+    const written = detectOpeningHours(html);
+    if (written) {
+      built.push({
+        type: "opening-hours",
+        ...(written.at !== undefined ? { at: written.at } : {}),
+        content: {
+          type: "opening-hours",
+          heading: written.heading ?? t.hours,
+          days: written.days,
+        },
+      });
+    }
   }
 
   // About - the owner's prose, and ONLY the prose no other section already
@@ -1940,7 +2294,7 @@ function buildPageSections(
   // only caught by position: a paragraph sitting under a heading some other
   // section already took is that section's, whatever it says.
   const claimed = claimedText(built);
-  const headingIndex = headingsAt(html);
+  const headingIndex = headingsAt(readable);
   const headingAbove = (at: number | undefined): string | undefined => {
     if (at === undefined) return undefined;
     let best: string | undefined;
@@ -2032,17 +2386,60 @@ function buildPageSections(
       },
     });
   } else if (aboutRemaining.length > 0) {
-    built.push({
-      type: "about",
-      at: atOfParagraph(aboutRemaining[0]),
-      variant: aboutImage ? "text-image" : "text-only",
-      content: {
+    // "Om oss" is a label we INVENT, so the sweep has to have earned it.
+    //
+    // This branch takes whatever prose no other section claimed, and on a real
+    // page that remainder is often not the business talking about itself: it
+    // was a wall of customer reviews on one clinic's page, a testimonial's
+    // attribution line on a consultancy's, and "Bli först med att ta del av
+    // kampanjer och nyheter" on a third. Published under "Om oss" that reads as
+    // the owner's own words about their own business, which is a claim we made
+    // up for them.
+    //
+    // Two ways to earn the label, both from the page: the source wrote an
+    // about-ish heading over the prose, or the prose is the page's OPENING
+    // copy, which is the business introducing itself by position. Anything else
+    // keeps every word as rich text under the source's own heading, or under
+    // none. (2643)
+    const firstAt = atOfParagraph(aboutRemaining[0]);
+    const ownHeading = headingAbove(firstAt);
+    // Quotations do not count as the page's opening copy. The consultancy's
+    // page leads with two customer quotes, so its first paragraphs are somebody
+    // else's words and the attribution line under them ("Mahdi Mojallal, fd.
+    // Business Unit Head") was published as that firm's own "Om oss".
+    const opensThePage = paragraphs(html.replace(/<blockquote\b[\s\S]*?<\/blockquote>/gi, " "))
+      .slice(0, 2)
+      .some((p) => textKey(p) === textKey(aboutRemaining[0]));
+    const isAbout = opensThePage || (ownHeading !== undefined && ABOUT_HEADING.test(ownHeading));
+    if (isAbout) {
+      built.push({
         type: "about",
-        heading: t.about,
-        body: aboutRemaining.join("\n\n").slice(0, 2000),
-        ...(aboutImage ? { media: { assetId: aboutImage, alt: altOf(aboutImage) } } : {}),
-      },
-    });
+        at: firstAt,
+        variant: aboutImage ? "text-image" : "text-only",
+        content: {
+          type: "about",
+          heading:
+            ownHeading && ABOUT_HEADING.test(ownHeading) && !claimed.has(textKey(ownHeading))
+              ? ownHeading
+              : t.about,
+          body: aboutRemaining.join("\n\n").slice(0, 2000),
+          ...(aboutImage ? { media: { assetId: aboutImage, alt: altOf(aboutImage) } } : {}),
+        },
+      });
+    } else {
+      built.push({
+        type: "rich-text",
+        at: firstAt,
+        variant: "prose",
+        content: {
+          type: "rich-text",
+          ...(ownHeading && !usedHeadings.has(ownHeading) && !claimed.has(textKey(ownHeading))
+            ? { heading: ownHeading }
+            : {}),
+          blocks: aboutRemaining.slice(0, 40).map((text) => ({ kind: "p", text })),
+        },
+      });
+    }
   } else if (!built.some((b) => CONTENT_BANDS.has(b.type))) {
     // Nothing has spoken for this page yet. A page whose only content is a
     // LIST — a catering menu, a "det har ingar" page, a services rundown
@@ -2059,6 +2456,368 @@ function buildPageSections(
           type: "highlights",
           heading: headings(html, "h2")[0] ?? t.what,
           items: loose.items.map((title) => ({ title, description: "" })),
+        },
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Bands the ladder passed over.
+  //
+  // Everything above is a detector that fires when it recognises something. A
+  // band it does not recognise used to produce NOTHING, and a fidelity run over
+  // 14 pages of 9 real sites measured what that costs: only 54% of the
+  // source's block-level text runs of 40+ characters reached the draft, and
+  // the losses were the owner's own writing: an invoicing policy, a
+  // late-cancellation fee, a door code and how to book (backlog 2643).
+  //
+  // So every unclaimed band is offered to `buildFromBand`, which either finds a
+  // real section in that band's own markup or returns null. Nothing is
+  // invented: the builders read the band, and the last of them keeps the words
+  // as plain rich text rather than letting them go.
+  //
+  // Run LAST on purpose. Every detector above has already taken what it
+  // recognised and About has already swept the loose prose, so `claimed` is
+  // complete and a band cannot repeat a sentence the page already shows.
+  // ---------------------------------------------------------------------
+  {
+    const claimedProse = claimedText(built);
+    const usedImages = new Set<string>([...ownedUrls, ...photos.map((c) => c.url)]);
+    const bands = bandsOf(html);
+    /** Where each section this pass built landed, so a RUN of one type across
+     *  neighbouring bands can be recognised afterwards. See the merges below. */
+    const fills: Array<{ band: number; at: number; type: string }> = [];
+    for (let i = 0; i < bands.length; i++) {
+      const band = bands[i];
+      const end = bands[i + 1]?.at ?? Number.POSITIVE_INFINITY;
+      const residualOnly = built.some(
+        (section) => section.at !== undefined && section.at >= band.at && section.at < end,
+      );
+      const proposal = proposals?.get(band.index);
+      const prefer =
+        proposal && proposal.confidence >= PROPOSAL_CONFIDENCE_FLOOR
+          ? proposal.sectionType
+          : undefined;
+      // A band another section already spoke for still holds its links. The
+      // residue pass below keeps WORDS, and a treatments row on a page builder
+      // is nine buttons with barely a word in it: the gallery detector took the
+      // card photos and the nine destinations went nowhere.
+      //
+      // Runs BEFORE the residue is built, so the grid's heading is claimed by
+      // the time rich text looks for one. The other way round, the same band
+      // produced a `services` titled "Market Cap utvecklar" and a `rich-text`
+      // under the very same title. (2643)
+      if (residualOnly) {
+        const grid = buildLinkGrid({
+          html: band.html,
+          baseUrl,
+          register: () => null,
+          claimed: claimedProse,
+        });
+        if (grid) {
+          for (const value of claimedTextOf(grid.content)) claimedProse.add(value);
+          const gridHeading = band.html.search(/<h[1-4]\b/i);
+          built.push({
+            type: grid.type,
+            content: grid.content,
+            at: gridHeading >= 0 ? band.at + gridHeading : band.at,
+          });
+        }
+      }
+      const section = buildFromBand(
+        {
+          // Use the observer's sanitized, 40 KB-capped block. Re-slicing the
+          // raw document restores footer/script/style chrome, especially for
+          // the last band whose range otherwise runs to EOF.
+          html: band.html,
+          baseUrl,
+          // A picture another band already shows must not appear twice, and the
+          // registry would happily hand back the same id for it.
+          register: (url, alt) => {
+            if (usedImages.has(url)) return null;
+            const id = registry.register(url, alt);
+            if (id) usedImages.add(url);
+            return id;
+          },
+          claimed: claimedProse,
+          residualOnly,
+        },
+        prefer,
+      );
+      if (!section) continue;
+      for (const value of claimedTextOf(section.content)) claimedProse.add(value);
+      fills.push({ band: i, at: built.length, type: section.type });
+      // `band.at` points at the opening <section>/<article>. Its heading sits
+      // just after that tag. Store the heading offset when there is one, so
+      // measured geometry joins to this band instead of the preceding h1.
+      const headingOffset = band.html.search(/<h[1-4]\b/i);
+      const evidenceAt = headingOffset >= 0 ? band.at + headingOffset : band.at;
+      built.push({ type: section.type, content: section.content, at: evidenceAt });
+
+      // A shaped block takes what its shape holds and leaves the rest, so the
+      // band is offered a second time for whatever it did not carry. On the
+      // dentist home page the announcement band produced a tidy highlights
+      // block and dropped the door code, the reminder fee and the payment
+      // terms sitting under it - the exact content backlog 2643 was raised
+      // for. `residualOnly` builds plain rich text and `claimedProse` now
+      // holds everything the block above took, so nothing is shown twice.
+      // No `register` here: a picture belongs to the block that framed it.
+      if (section.type === "rich-text" || residualOnly) continue;
+      const residue = buildFromBand({
+        html: band.html,
+        baseUrl,
+        register: () => null,
+        claimed: claimedProse,
+        residualOnly: true,
+      });
+      if (!residue) continue;
+      for (const value of claimedTextOf(residue.content)) claimedProse.add(value);
+      built.push({ type: residue.type, content: residue.content, at: evidenceAt });
+    }
+
+    // A RUN of cta-bands is a card grid, not five full-width calls to action.
+    //
+    // `ctaBand` reads one band and it reads it correctly: a heading, at most one
+    // line, and a link. What it cannot see is its neighbours. The Sennberg home
+    // page has five adjacent promo tiles and imported as five stacked banner
+    // bands, each the width of the screen, which is not what the source looks
+    // like and not something an owner would leave alone. Two or more in a row,
+    // from bands that sit next to each other, are the same list, and `services`
+    // is the block that renders a titled card with a link on each card.
+    //
+    // Nothing is invented in the items: the title, the line under it and the
+    // link are the source's own. The section HEADING is ours - the schema
+    // requires one and the source gave the run no shared heading - and it is the
+    // same label the leftover-heading card list above already prints. (2643)
+    //
+    // A run of `rich-text` is merged too, for a plainer reason: rich text is an
+    // ordered list of blocks, so joining two of them concatenates the lists and
+    // loses not one word. The Anna Hedin home page arrived as five stacked
+    // rich-text blocks where the source has one article; a heading that carried
+    // a section becomes an `h` block at the top of its own part, so the
+    // structure a reader sees is unchanged.
+    {
+      const dropped = new Set<number>();
+      for (let start = 0; start < fills.length; ) {
+        let end = start + 1;
+        while (
+          end < fills.length &&
+          fills[end].band === fills[end - 1].band + 1 &&
+          fills[end].type === fills[start].type
+        ) {
+          end++;
+        }
+        const run = fills.slice(start, end);
+        if (run.length >= 2 && run[0].type === "rich-text") {
+          const blocks: unknown[] = [];
+          let heading: string | undefined;
+          run.forEach(({ at }, index) => {
+            const content = built[at].content as { heading?: string; blocks: unknown[] };
+            // The first part's heading stays the section's; every later one
+            // becomes an h2 inside it, which is where it sat in the source.
+            if (content.heading && index === 0) heading = content.heading;
+            else if (content.heading) blocks.push({ kind: "h", level: 2, text: content.heading });
+            blocks.push(...content.blocks);
+          });
+          built[run[0].at] = {
+            type: "rich-text",
+            at: built[run[0].at].at,
+            content: {
+              type: "rich-text",
+              ...(heading ? { heading } : {}),
+              blocks: blocks.slice(0, 60),
+            },
+          };
+          for (const { at } of run.slice(1)) dropped.add(at);
+        } else if (run.length >= 2 && run[0].type === "cta-band") {
+          const items = run.map(({ at }) => {
+            const content = built[at].content as {
+              headline: string;
+              subtext?: string;
+              primaryCta: { label: string; target: unknown };
+            };
+            return {
+              title: content.headline,
+              ...(content.subtext ? { description: content.subtext } : {}),
+              cta: content.primaryCta,
+            };
+          });
+          built[run[0].at] = {
+            type: "services",
+            at: built[run[0].at].at,
+            content: { type: "services", heading: t.what, items },
+          };
+          for (const { at } of run.slice(1)) dropped.add(at);
+        }
+        start = end;
+      }
+      if (dropped.size > 0) {
+        const kept = built.filter((_, index) => !dropped.has(index));
+        built.length = 0;
+        built.push(...kept);
+      }
+    }
+  }
+
+  // The page's OPENING prose is the about section.
+  //
+  // The sweep above only labels prose "Om oss" when the page earned it, and the
+  // commonest way a page earns it is by position: under the hero, a small
+  // business introduces itself. That prose usually arrives here as a band-built
+  // `rich-text`, so the page ends up with no about section at all while its
+  // opening paragraph sits in an untitled text block - and the corpus's truth
+  // labels call that block `about` on every page that has one.
+  //
+  // Narrow on purpose. Only when nothing else on the page is already an about,
+  // only the EARLIEST content block, and only when it is plain paragraphs: a
+  // block carrying its own subheadings or lists is an article, and flattening
+  // one into an about body would lose the structure a reader sees. (2643)
+  {
+    const hasAbout = built.some((b) => b.type === "about");
+    const positioned = built
+      .map((b, index) => ({ b, index }))
+      .filter(({ b }) => b.at !== undefined && CONTENT_BANDS.has(b.type))
+      .sort((x, y) => (x.b.at ?? 0) - (y.b.at ?? 0));
+    const opening = positioned[0];
+    const content = opening?.b.content as
+      | { heading?: string; blocks?: Array<{ kind: string; text?: string }> }
+      | undefined;
+    const plain =
+      opening?.b.type === "rich-text" &&
+      Array.isArray(content?.blocks) &&
+      content.blocks.length > 0 &&
+      content.blocks.every((block) => block.kind === "p" && (block.text?.length ?? 0) > 0);
+    // A heading of its own that says something else is the source telling us
+    // what the block is: "Recensioner" over three customer reviews is not the
+    // business introducing itself, whatever its position on the page.
+    const titledOtherwise =
+      typeof content?.heading === "string" && !ABOUT_HEADING.test(content.heading);
+    if (!hasAbout && opening && plain && content && !titledOtherwise) {
+      built[opening.index] = {
+        type: "about",
+        at: opening.b.at,
+        variant: "text-only",
+        content: {
+          type: "about",
+          heading: content.heading ?? t.about,
+          body: content.blocks!.map((block) => block.text!).join("\n\n").slice(0, 2000),
+        },
+      };
+    }
+  }
+
+  // Last resort: the words the page prints that no band on the draft shows.
+  //
+  // Everything above is a detector or a sweep with a shape it insists on, and a
+  // paragraph can fall between all of them. The About sweep skips prose sitting
+  // under an h2, because that prose belongs to its own band rather than to "Om
+  // oss" - and the band pass never offers it, because a band of a heading and
+  // one paragraph is under the observer's 200-character floor for "this is a
+  // layout at all". A clinic's customer review vanished in exactly that gap.
+  //
+  // Which is the half of 2643 that matters most: the LABEL may be wrong and the
+  // owner fixes it in a click, but a word that never arrived is one they have to
+  // notice is missing. So whatever is left is kept as plain rich text under the
+  // source's own heading, or under none - no detector, no shape, no invented
+  // title.
+  //
+  // Runs after the about promotion above on purpose: a rescued paragraph must
+  // never be the block that gets relabelled "Om oss", which is the very failure
+  // this tail was written to stop. (2643)
+  /** Leftover headings before anything below rescued one, so the card list at
+   *  the end still knows whether the page HAD a list's worth of them. */
+  let leftoverBeforeRescue = leftoverHeadings.filter(isOfferingHeading).length;
+  {
+    const shown = shownProse(built);
+    const claimedHeadings = claimedText(built);
+    leftoverBeforeRescue = leftoverHeadings.filter(
+      (h) => !claimedHeadings.has(textKey(h)) && isOfferingHeading(h),
+    ).length;
+    // `readable` is the same document the bands read, which is the document a
+    // visitor sees. Reading the raw markup here published a `<template>`'s copy
+    // and a modal's text as the owner's writing, and printed one paragraph
+    // twice - once as the band's sanitized text, once with an inline
+    // `<svg><title>` glued to its front.
+    //
+    // Inside the page's own `<main>` when it declares one, because the sweep
+    // picks up precisely what nothing claimed, and that is exactly where a
+    // cookie bar or a floating widget would be found.
+    const lost = paragraphsAt(readable).filter(
+      (p) =>
+        !outsideOwnContent(p.at) &&
+        !looksLikeConsentBar(p.text) &&
+        !shown.includes(textKey(p.text)),
+    );
+    /** Grouped under the heading each one actually sits below, in page order,
+     *  so two unrelated leftovers do not become one block. */
+    const byHeading = new Map<string, Array<{ text: string; at: number }>>();
+    for (const p of lost) {
+      const key = headingAbove(p.at) ?? "";
+      const run = byHeading.get(key);
+      if (run) run.push(p);
+      else byHeading.set(key, [p]);
+    }
+    for (const [heading, run] of [...byHeading].slice(0, MAX_RESCUED_BLOCKS)) {
+      built.push({
+        type: "rich-text",
+        at: run[0].at,
+        variant: "prose",
+        content: {
+          type: "rich-text",
+          // The source's own title, unless a band on the draft already shows it
+          // - then the words go under none rather than under a second copy of
+          // a heading the owner is already reading further up.
+          ...(heading && !claimedHeadings.has(textKey(heading)) ? { heading } : {}),
+          blocks: run.slice(0, 40).map((p) => ({ kind: "p", text: p.text })),
+        },
+      });
+    }
+  }
+
+  // The leftover-heading card list, decided now that band-fill has run.
+  //
+  // A heading whose band produced a real section is already on the page, with
+  // more of the source under it than a title-only card ever holds, so showing it
+  // again is a duplicate the owner has to delete by hand. What survives this
+  // filter is the case the card list was written for: an h2 that no detector and
+  // no band could turn into anything, which is still the owner's own wording and
+  // still worth keeping. (2643)
+  {
+    const shown = claimedText(built);
+    const left = leftoverHeadings
+      .filter((h) => !shown.has(textKey(h)))
+      // Page furniture, and address blocks wearing a heading tag. The
+      // restaurant in the corpus titles a band with a whole branch line -
+      // "MOGGE SUSHI GAMLA STAN Tel: 08-4080 1616 Munkbron 5, 111" - and that
+      // is an address, not an offering; its own `location` block carries it
+      // properly. Same test the band-level link grid already applies to a
+      // heading. (2643)
+      .filter(isOfferingHeading);
+    // Two headings is the floor for a card LIST, counted before the rescue
+    // above took one of them. Counting after would delete the second heading
+    // from the draft entirely - "Bokning" rescued with its paragraph, "Priser"
+    // dropped for being the only one left - which is the loss this whole tail
+    // is written to stop. Both counts skip furniture, so a page whose only
+    // leftovers are "Kontakt" and "Öppettider" still publishes no list.
+    if (left.length >= 1 && leftoverBeforeRescue >= 2) {
+      built.push({
+        type: "highlights",
+        at: atOfHeading(left[0]),
+        content: {
+          type: "highlights",
+          heading: t.what,
+          items: left.map((h) => {
+            const firstPara = stripTags(
+              (bodyByHeading.get(h)?.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i) ?? [, ""])[1] ?? "",
+            );
+            return {
+              title: h.slice(0, 56),
+              // Empty stays empty rather than inventing a description: the
+              // renderer handles a title-only card, and a guessed sentence on
+              // someone's website is worse than a missing one.
+              description: firstPara.length >= 20 ? firstPara.slice(0, 240) : "",
+            };
+          }),
         },
       });
     }
@@ -2091,8 +2850,19 @@ function buildPageSections(
 
   // Footer.
   built.push({ type: "footer", content: { type: "footer", businessName: name } });
+
+  // The optional proposal pass, LAST: every detector has already run and every
+  // word and picture is already in place, so all this can do is relabel a band
+  // and pick its layout. See `lib/import/sectionProposal.ts` for the four rules
+  // that bound it; with no proposals for this page (no model configured, the
+  // pass failed, nothing cleared the confidence floor) this is the identity.
+  const proposed = proposals
+    ? applySectionProposals(built, proposals, bandsOf(html))
+    : { sections: built, applied: [] };
+  if (proposalSink) proposalSink.push(...proposed.applied);
+
   // The source decided the order; we only decided what each block IS.
-  return inSourceOrder(built);
+  return inSourceOrder(proposed.sections);
 }
 
 /** Slug for an imported page derived from its URL path. The site root becomes
@@ -2420,6 +3190,11 @@ export type MultiPageReport = {
   /** Images skipped because the import asset cap was hit (0 when under cap).
    *  Surfaced so the import summary never hides truncation. */
   droppedAssets: number;
+  /** Every block proposal that cleared the confidence floor, and what it did.
+   *  Empty when no model ran. This is the audit trail the contract asks for: a
+   *  band that came out wrong is traceable to the label that moved it, and the
+   *  `rejected` rows say which conversion is worth building next. */
+  sectionProposals: Array<AppliedProposal & { slug: string }>;
 };
 
 /** Build ONE portable site from every crawled page of a real site. Each input
@@ -2466,6 +3241,11 @@ export function multiPageToPortableSite(
     /** What a vision model made of the pictures, keyed by absolute image URL.
      *  Optional and best-effort: see `convex/import/imageRoles.ts`. */
     imageVerdicts?: ImageVerdicts;
+    /** What a model made of each PAGE's bands: which block each band should be
+     *  and which layout, keyed by absolute page URL then by band index.
+     *  Optional and best-effort, exactly like `imageVerdicts` - see
+     *  `convex/import/sectionProposals.ts`. */
+    sectionProposals?: ReadonlyMap<string, ReadonlyMap<number, SectionProposal>>;
   },
 ): {
   site: PortableSiteV1;
@@ -2549,6 +3329,7 @@ export function multiPageToPortableSite(
   const pages: PortableSiteV1["pages"] = [];
   const sections: PortableSiteV1["sections"] = [];
   const reportPages: MultiPageReport["pages"] = [];
+  const proposalRows: MultiPageReport["sectionProposals"] = [];
 
   // Site-level meta accumulates: home wins, others fill scalar gaps.
   let siteName = "";
@@ -2582,6 +3363,7 @@ export function multiPageToPortableSite(
 
     const meta = extractFromHtml(page.html, page.url);
     const locale = detectLocale(page.html);
+    const pageProposalRows: AppliedProposal[] = [];
     const built = buildPageSections(
       page.html,
       page.url,
@@ -2589,7 +3371,10 @@ export function multiPageToPortableSite(
       registry,
       heroVariant,
       opts?.imageVerdicts,
+      opts?.sectionProposals?.get(page.url),
+      pageProposalRows,
     );
+    proposalRows.push(...pageProposalRows.map((row) => ({ ...row, slug })));
     const tmpId = slug || "home";
     const t = COPY[locale];
     // A `<title>` is "<page> <sep> <brand>" far more often than not, so using it
@@ -2756,7 +3541,7 @@ export function multiPageToPortableSite(
     if (ok.length > 0) redirects = ok;
   }
 
-  const signals = withCarriedEmbeds(rawSignals, sections);
+  const signals = withCarriedEmbeds(rawSignals, sections, pages[0]?.tmpId);
 
   const site: PortableSiteV1 = {
     format: "sajt-site",
@@ -2810,7 +3595,12 @@ export function multiPageToPortableSite(
 
   return {
     site,
-    report: { homeUrl, pages: reportPages, droppedAssets: registry.droppedCount },
+    report: {
+      homeUrl,
+      pages: reportPages,
+      droppedAssets: registry.droppedCount,
+      sectionProposals: proposalRows,
+    },
     design: homeDesign,
     fonts: homeFonts,
     signals,

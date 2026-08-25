@@ -48,7 +48,7 @@ export const DAY_KEYS: readonly DayKey[] = [
  *  Arabic-speaking customers live that same week. Rotating the table to
  *  Saturday-first would move the days that matter into the middle of the list
  *  to satisfy a calendar convention from a country the business is not in.
- *  Revisit only if SnabbSajt sells outside Sweden. */
+ *  Revisit only if Snabbsite sells outside Sweden. */
 export const WEEKDAYS: Record<SiteLocale, Record<DayKey, string>> = {
   sv: {
     mon: "Måndag",
