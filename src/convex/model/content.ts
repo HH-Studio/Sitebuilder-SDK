@@ -436,13 +436,27 @@ export type CareersIndexConfig = Infer<typeof careersIndexConfigValidator>;
 // lib/sections/richText.ts - keep the two in step.
 // ---------------------------------------------------------------------------
 
-/** A run of text carrying at most a bold flag and a link. Bold and link are the
- *  only marks on purpose: they are what an owner actually pastes out of Word,
- *  and every further mark is one more way to make a page look homemade. Colour,
- *  size and font stay with the theme, where they cannot be got wrong. */
+/** A run of text and its marks.
+ *
+ *  Bold and link came first: they are what an owner actually pastes out of
+ *  Word. Underline, size and colour were added on 2026-08-24 by owner
+ *  directive, reversing the earlier ruling that colour and size stay with the
+ *  theme. What makes that safe is that neither is a free value: size is a STEP
+ *  away from the size the design already chose, and colour is a TOKEN NAME the
+ *  band resolves, filtered by contrast. Font stays with the theme.
+ *
+ *  Ordinary fields (a hero headline, a card title) do NOT store runs. Their
+ *  formatting lives beside the text in `sections.textMarks`, and renders
+ *  through this same span type. See `lib/sections/textMarks.ts` for why. */
 export const inlineSpan = v.object({
   text: v.string(),
   bold: v.optional(v.boolean()),
+  underline: v.optional(v.boolean()),
+  /** A STEP away from the size the design chose, never an absolute size. */
+  size: v.optional(v.union(v.literal("sm"), v.literal("lg"), v.literal("xl"))),
+  /** A TOKEN name resolved against the band's own `--site-*` vars, never a hex
+   *  code, so a colour cannot be carried onto a surface it fails contrast on. */
+  color: v.optional(v.union(v.literal("muted"), v.literal("primary"))),
   /** Sanitised by `safeLinkHref` before it is written, and again at render. */
   href: v.optional(v.string()),
 });
@@ -472,3 +486,22 @@ export const richBlock = v.union(
   v.object({ kind: v.literal("ul"), items: v.array(blockText) }),
 );
 export type RichBlock = Infer<typeof richBlock>;
+
+/** Formatting for an ORDINARY text field, stored beside the text rather than
+ *  inside it: `path` is the content dot path (the same vocabulary as
+ *  `hiddenContentPaths`), `from`/`to` are character offsets, and `text` is the
+ *  marked substring, which is how a mark survives an edit to the sentence
+ *  around it. The TS mirror plus every helper lives in
+ *  `lib/sections/textMarks.ts`; keep the two in step. */
+export const textMark = v.object({
+  path: v.string(),
+  from: v.number(),
+  to: v.number(),
+  text: v.string(),
+  bold: v.optional(v.boolean()),
+  underline: v.optional(v.boolean()),
+  size: v.optional(v.union(v.literal("sm"), v.literal("lg"), v.literal("xl"))),
+  color: v.optional(v.union(v.literal("muted"), v.literal("primary"))),
+  href: v.optional(v.string()),
+});
+export type TextMark = Infer<typeof textMark>;
