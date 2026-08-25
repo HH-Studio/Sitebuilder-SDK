@@ -17,6 +17,7 @@ import {
   sectionMotionValidator,
   sectionToneValidator,
   socialsValidator,
+  textMark,
 } from "./content";
 import { CONTENT_TYPES } from "../../lib/content/contentTypes";
 import { siteLocaleValidator } from "./business";
@@ -83,6 +84,9 @@ export const snapshotSection = v.object({
   // did. Absent = the layout's own defaults, which is every older snapshot.
   options: v.optional(sectionOptionsValidator),
   hiddenContentPaths: v.optional(v.array(v.string())),
+  // Frozen at publish next to the content it decorates. A snapshot without the
+  // field renders plain, which is every version published before 2026-08-24.
+  textMarks: v.optional(v.array(textMark)),
   anchorId: v.optional(v.string()),
   content: sectionContent,
 });
