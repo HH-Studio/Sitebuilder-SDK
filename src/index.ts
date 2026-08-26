@@ -111,6 +111,34 @@ export type {
   ResizeMessage,
   SiteMessage,
 } from "./lib/visual-editing/protocol";
+// Local editing: a small panel drawn in the agency's OWN app while it runs on
+// their machine, writing straight into their content files. Browser-safe; the
+// route handler that does the writing is the "./local-content" entry point.
+export { mountLocalOverlay, OVERLAY_STATE_KEY } from "./lib/devlocal/overlay";
+export type {
+  LocalOverlayHandle,
+  MountLocalOverlayOptions,
+  OverlayDocument,
+  OverlayElement,
+  OverlayStorage,
+} from "./lib/devlocal/overlay";
+export {
+  checkFieldValue,
+  fieldFor,
+  overlayRows,
+  OVERLAY_RICHTEXT_CEILING,
+  OVERLAY_TEXT_CEILING,
+} from "./lib/devlocal/fields";
+export type {
+  FieldCheck,
+  ImageValue,
+  LinkValue,
+  OverlayControl,
+  OverlayRow,
+  OverlayValue,
+} from "./lib/devlocal/fields";
+export { isDevelopmentBuild } from "./lib/devlocal/devOnly";
+export { LOCAL_CONTENT_PATH } from "./lib/devlocal/route";
 // Developer-defined blocks: your components, your rendering, our content.
 export {
   BLOCK_FIELD_KINDS,

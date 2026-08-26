@@ -24,6 +24,10 @@
     "./local-files": {
       "types": "./dist/lib/site-kit/localFiles.d.ts",
       "import": "./dist/lib/site-kit/localFiles.js"
+    },
+    "./local-content": {
+      "types": "./dist/lib/devlocal/localContent.d.ts",
+      "import": "./dist/lib/devlocal/localContent.js"
     }
   },
   "files": [
@@ -38,7 +42,7 @@
   ],
   "scripts": {
     "build": "bun run build:site-kit && bun run --cwd packages/cli build",
-    "build:site-kit": "tsup src/index.ts src/cli.ts src/lib/site-kit/localFiles.ts --format esm --dts --clean --external playwright && mkdir -p packages/site-kit/dist && cp -R dist/. packages/site-kit/dist/",
+    "build:site-kit": "tsup src/index.ts src/cli.ts src/lib/site-kit/localFiles.ts src/lib/devlocal/localContent.ts --format esm --dts --clean --external playwright && mkdir -p packages/site-kit/dist && cp -R dist/. packages/site-kit/dist/",
     "test": "vitest run && bun run --cwd packages/cli test",
     "typecheck": "tsc --noEmit && bun run --cwd packages/cli typecheck",
     "contract:check": "bun scripts/sync-contract.ts --check",

@@ -15,6 +15,10 @@
     "./local-files": {
       "types": "./dist/lib/site-kit/localFiles.d.ts",
       "import": "./dist/lib/site-kit/localFiles.js"
+    },
+    "./local-content": {
+      "types": "./dist/lib/devlocal/localContent.d.ts",
+      "import": "./dist/lib/devlocal/localContent.js"
     }
   },
   "dependencies": {
