@@ -13,13 +13,13 @@
 //
 // Three refusals, in order:
 //
-//  1. **Not a development build** — 404, the same answer a route that does not
+//  1. **Not a development build**: 404, the same answer a route that does not
 //     exist gives, so a production deploy that mounted this by mistake reveals
 //     nothing about what it would have done.
-//  2. **Not a same-origin request** — 403. The overlay is drawn on the page it
+//  2. **Not a same-origin request**: 403. The overlay is drawn on the page it
 //     writes for, so a cross-origin write is somebody else's page reaching into
 //     this developer's repository.
-//  3. **Anything `defineBlock` refuses** — 400 with the reason, which the panel
+//  3. **Anything `defineBlock` refuses**: 400 with the reason, which the panel
 //     prints under the field.
 // ---------------------------------------------------------------------------
 

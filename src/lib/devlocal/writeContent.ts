@@ -4,7 +4,7 @@
 // Plan: the app's docs/plans/verifying/P3-2026-08-25-local-overlay-without-the-
 // dashboard.md, step 4. The overlay draws inside the agency's own app while it
 // runs locally, so the shortest honest path from a click to a file is a route
-// handler in that same app. No agent, no port, no certificate, no login — which
+// handler in that same app. No agent, no port, no certificate, no login, which
 // is the whole point of this plan over the editor-in-a-tab one.
 //
 // What it may touch, and nothing else:
@@ -65,7 +65,7 @@ type PageFile = {
 };
 
 /** Read every page in the directory. A directory that has never been pulled has
- *  no pages, which is an empty list rather than a crash — the same choice the
+ *  no pages, which is an empty list rather than a crash. Same choice the
  *  starter template's `loadSite` makes. */
 async function readPages(dir: string): Promise<PageFile[]> {
   const pagesDir = join(dir, "pages");

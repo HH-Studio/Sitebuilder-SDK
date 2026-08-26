@@ -3,7 +3,7 @@
 //
 // Both halves ask this: the panel refuses to mount, and the route handler
 // refuses to answer. Two independent refusals rather than one, because they
-// fail differently — a panel that leaked would show a visitor an edit button,
+// fail differently. A panel that leaked would show a visitor an edit button,
 // and a handler that leaked would let a visitor WRITE.
 //
 // Read from `process.env.NODE_ENV`, which every bundler that matters replaces
@@ -15,8 +15,8 @@
 /**
  * True only in a development build.
  *
- * Fails CLOSED. A runtime with no `process` at all — a worker, an edge runtime,
- * a browser bundle where the variable was never substituted — is treated as
+ * Fails CLOSED. A runtime with no `process` at all (a worker, an edge runtime,
+ * a browser bundle where the variable was never substituted) is treated as
  * production, because the failure it prevents is the expensive one.
  */
 export function isDevelopmentBuild(): boolean {

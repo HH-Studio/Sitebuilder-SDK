@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// The field model behind the local overlay — one row per declared field, and
+// The field model behind the local overlay: one row per declared field, and
 // one checker that decides whether a typed value may be written.
 //
 // Plan: the app's docs/plans/verifying/P3-2026-08-25-local-overlay-without-the-
@@ -9,7 +9,7 @@
 //
 // Deliberately pure. No DOM, no filesystem, no `process`. The browser half
 // (`overlay.ts`) and the node half (`writeContent.ts`) both import it, and they
-// have to agree — a value the panel offers and the writer refuses is a control
+// have to agree. A value the panel offers and the writer refuses is a control
 // that looks broken, and a value the writer accepts and the panel cannot show
 // is a field that silently disappears.
 //
@@ -35,7 +35,8 @@ export type OverlayControl =
   /** Two boxes: the address and the words on it. */
   | { control: "link" }
   /** Two boxes: the asset id and its alt text. There is no file picker here on
-   *  purpose — uploading needs our storage, and this overlay works on a plane. */
+   *  purpose, because uploading needs our storage and this overlay works on a
+   *  plane. */
   | { control: "image" };
 
 export type LinkValue = { href: string; label?: string };
@@ -111,8 +112,8 @@ function narrow(field: BlockField, raw: unknown): OverlayValue {
  *
  * Driven by the DECLARATION, never by the props actually present: a field the
  * agency declared but the client has not filled in still gets a row, otherwise
- * a fresh hemsida would offer nothing to type into. The reverse — a prop in the
- * file that no field declares — is left out rather than drawn, because writing
+ * a fresh hemsida would offer nothing to type into. The reverse, a prop in the
+ * file that no field declares, is left out rather than drawn, because writing
  * it back would re-save a key `defineBlock` has already refused.
  */
 export function overlayRows(
@@ -153,8 +154,8 @@ function hrefIsSafe(href: string): boolean {
  * Decide whether one typed value may be written into the block's props.
  *
  * The single gate. The browser calls it to grey out a save, and the writer
- * calls it again before it touches the file — because the browser half is the
- * agency's own page, and a request can be made without it.
+ * calls it again before it touches the file, because the browser half is the
+ * agency's own page and a request can be made without it.
  */
 export function checkFieldValue(field: BlockField, raw: unknown): FieldCheck {
   if (field.locked === true) {

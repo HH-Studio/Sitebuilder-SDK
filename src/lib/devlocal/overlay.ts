@@ -96,7 +96,7 @@ export type OverlayStorage = {
 
 /** Where the open/closed state is remembered. The panel sits on top of somebody
  *  else's design, so it starts collapsed and stays however the developer left
- *  it — a strip that reopens on every reload is a strip they turn off. */
+ *  it. A strip that reopens on every reload is a strip they turn off. */
 export const OVERLAY_STATE_KEY = "snabbsite.local-overlay.open";
 
 type SectionState = {
