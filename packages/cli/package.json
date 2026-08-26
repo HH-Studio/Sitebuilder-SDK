@@ -1,6 +1,6 @@
 {
   "name": "@snabbsajt/cli",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Local-first command line tools for SnabbSajt site packages.",
   "license": "MIT",
   "type": "module",

@@ -515,7 +515,7 @@ real push would do.
 --create makes a NEW website from this package instead of merging into one, for
 the first push out of a repository that is not paired to a site yet. It takes no
 --site and no --dry-run: create mode has no preview, so a dry run there would
-have to make a real website to describe one. Run `snabbsajt link` afterwards to
+have to make a real website to describe one. Run \`snabbsajt link\` afterwards to
 pair this directory to the site it made.
 
 --branch reports the preview address your host built for that branch, so the

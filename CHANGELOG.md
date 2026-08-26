@@ -12,6 +12,20 @@ that validated against an older CLI still validates against a newer one.
 
 ## [Unreleased]
 
+## [0.4.1] (2026-08-26)
+
+### Fixed
+
+- **The package builds again.** Two errors stopped `npm publish` at its own
+  `prepare` step, so nothing could be released at all. `packages/cli`'s push
+  help text carried a pair of unescaped backticks that closed the template
+  literal early, and the Sanity converter built a `PortableSiteV1` without the
+  required `contact` object. The converter now sends an empty one, which is the
+  honest answer: a Sanity dataset holds documents, not the firm's phone number.
+- **0.4.0 on npm is missing four exports** that landed shortly after it was
+  built: `findPage`, `renderModelFromPackage`, `renderModelFromPublished` and
+  `RenderSite`. npm versions are immutable, so this release is the fix.
+
 ### Changed
 
 - **The mirror validates the `events` section type and 32 new variants the app

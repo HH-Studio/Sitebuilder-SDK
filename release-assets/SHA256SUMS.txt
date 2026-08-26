@@ -1,4 +1,6 @@
-03ffabb2ad32881ec12c59b5e5a7a42263355870602e60457265b4b67fb5eb6d  manage-snabbsajt-site-1.2.0.zip
-38cb90a589f4148b26f56d7052dac414848a962deadce80f3ff99438345c5a6d  build-snabbsajt-site-1.2.0.zip
-79759b4f75cca5e6e4e9876bd122b26e50fd81080e1cb4356fb35b093343a7c4  review-site-package-1.2.0.zip
-79d17b4c594604fb8a1f5d195ab6252c3024711582b1a6faed68c32a04bc7e6d  import-website-1.2.0.zip
+190c5f69c5c434498b7ef33531db6f6fe22c6a7a9b6a827de499c6c9c06f75d4  review-site-package-1.4.0.zip
+375a4237b609684cd3f8e927a062fbb5f09284aac1fcbc7db046b03563ab398d  manage-snabbsajt-site-1.4.0.zip
+730e6ed4d7f84417136f8692abec9f9269132812df9c8061f14b4f14c22c5244  make-site-editable-1.4.0.zip
+c953df7b51d7003e57f18df85c458c3db1dd4a1f5a0d4618d277bdd10327a101  build-snabbsajt-site-1.4.0.zip
+dab2c1adf654f5cee8e6d0908378e3ab148cbbb15131cde40b5fdba3082fa16a  snabbsajt-getting-started-1.4.0.zip
+de0640c9e4c1a2f0b69365d109281e5ecec1098094aeac9d24eca343b235c95e  import-website-1.4.0.zip

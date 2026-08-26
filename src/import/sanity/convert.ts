@@ -446,6 +446,11 @@ export function convertSanityExport(
       // nothing is how an import looks like it worked and reads like it did
       // not. The agency sets the brand in the editor, or a repo declares it.
       theme: { ...DEFAULT_THEME },
+      // Empty for the same reason the theme is our default: a Sanity dataset
+      // holds documents, not the firm's phone number or postal address.
+      // Every field inside is optional, so an empty object is the honest
+      // answer, and the agency fills it in the editor.
+      contact: {},
     },
     folders: [],
     pages,
