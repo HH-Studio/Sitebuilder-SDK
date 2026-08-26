@@ -157,7 +157,7 @@ export function mountLocalOverlay(
 
   const toggle = doc.createElement("button");
   toggle.setAttribute("type", "button");
-  toggle.textContent = "Redigera";
+  toggle.textContent = "Edit";
   Object.assign(toggle.style, {
     padding: "8px 14px",
     borderRadius: "999px",
@@ -206,7 +206,7 @@ export function mountLocalOverlay(
       status.textContent = local.reason;
       return;
     }
-    status.textContent = "Sparar…";
+    status.textContent = "Saving…";
     try {
       const response = await request(endpoint, {
         method: "POST",
@@ -217,22 +217,22 @@ export function mountLocalOverlay(
         reason?: string;
       };
       if (!response.ok) {
-        status.textContent = payload.reason ?? "Kunde inte spara.";
+        status.textContent = payload.reason ?? "Could not save.";
         return;
       }
       section.props = { ...section.props, [key]: value };
-      status.textContent = "Sparat";
+      status.textContent = "Saved";
     } catch {
       // The dev server restarting mid-keystroke is the common case, and it is
       // not an error worth a red box: the next keystroke retries.
-      status.textContent = "Ingen kontakt med dev-servern.";
+      status.textContent = "No answer from the dev server.";
     }
   };
 
   const drawRow = (row: OverlayRow): OverlayElement => {
     const wrap = doc.createElement("div");
     Object.assign(wrap.style, { margin: "0 0 12px" });
-    wrap.appendChild(line(row.locked ? `${row.label} (låst)` : row.label, "600"));
+    wrap.appendChild(line(row.locked ? `${row.label} (locked)` : row.label, "600"));
 
     const status = doc.createElement("div");
     Object.assign(status.style, { color: "#666666", margin: "4px 0 0" });
@@ -288,7 +288,7 @@ export function mountLocalOverlay(
         const href = input("input", current.href ?? "");
         const label = input("input", current.label ?? "");
         href.setAttribute("placeholder", "https://…");
-        label.setAttribute("placeholder", "Text på knappen");
+        label.setAttribute("placeholder", "Button text");
         const send = () =>
           commit({ href: href.value ?? "", label: label.value ?? "" });
         href.addEventListener("change", send);
@@ -305,7 +305,7 @@ export function mountLocalOverlay(
         const asset = input("input", current.assetId ?? "");
         const alt = input("input", current.alt ?? "");
         asset.setAttribute("placeholder", "assetId");
-        alt.setAttribute("placeholder", "Alt-text");
+        alt.setAttribute("placeholder", "Alt text");
         const send = () =>
           commit({ assetId: asset.value ?? "", alt: alt.value ?? "" });
         asset.addEventListener("change", send);
@@ -335,12 +335,12 @@ export function mountLocalOverlay(
 
   const draw = (): void => {
     if (!section) {
-      drawEmpty("Klicka på en text på sidan för att redigera den.");
+      drawEmpty("Click any text on the page to edit it.");
       return;
     }
     const definition = options.library[section.blockType];
     if (!definition) {
-      drawEmpty(`Blocket "${section.blockType}" finns inte i det här repot.`);
+      drawEmpty(`No block called "${section.blockType}" in this repository.`);
       return;
     }
     clear(panel);
@@ -358,7 +358,7 @@ export function mountLocalOverlay(
       );
       if (!response.ok) {
         section = undefined;
-        drawEmpty("Den här sektionen finns inte i dina innehållsfiler.");
+        drawEmpty("That section is not in your content files.");
         return;
       }
       const payload = (await response.json()) as {
@@ -372,7 +372,7 @@ export function mountLocalOverlay(
       };
       draw();
     } catch {
-      drawEmpty("Ingen kontakt med dev-servern.");
+      drawEmpty("No answer from the dev server.");
     }
   };
 

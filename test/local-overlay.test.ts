@@ -366,7 +366,7 @@ describe("selecting by click", () => {
     const text = doc.overlay().text();
     expect(text).toContain("Hero");
     expect(text).toContain("Rubrik");
-    expect(text).toContain("(låst)");
+    expect(text).toContain("(locked)");
   });
 
   it("ignores a click on anything that is not a marked field", async () => {
@@ -374,7 +374,7 @@ describe("selecting by click", () => {
     const { doc } = mount(dir);
     doc.fire("click", { target: { closest: () => null } });
     await settle();
-    expect(doc.overlay().text()).toContain("Klicka på en text");
+    expect(doc.overlay().text()).toContain("Click any text");
   });
 
   it("remembers whether the panel was open", async () => {
