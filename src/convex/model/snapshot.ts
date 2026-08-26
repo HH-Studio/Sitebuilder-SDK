@@ -110,6 +110,7 @@ export const snapshotPage = v.object({
       v.literal("accessibility"),
     ),
   ),
+  legalReviewedAt: v.optional(v.number()),
   // Page kind, frozen at publish. Absent => "page" (back-compat with snapshots
   // written before news/blog existed). "post" pages render under /news/<slug>,
   // are listed on /news, and are excluded from top-level page routing + nav.
@@ -125,6 +126,9 @@ export const snapshotPage = v.object({
   featuredImage: v.optional(assetRef),
   publishedAt: v.optional(v.number()),
   contentType: v.optional(contentTypeValidator),
+  // Frozen with the prose so the public head never reads draft state. Absent
+  // on older snapshots means no declaration can be made from stored facts.
+  hasAiWrittenContent: v.optional(v.boolean()),
   // Owner's planned date (calendar). Carried through publish as inert data; no
   // publish logic reads it (Phase 2).
   plannedFor: v.optional(v.number()),

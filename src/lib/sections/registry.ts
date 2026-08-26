@@ -5,6 +5,7 @@ import type {
   SectionType,
 } from "../../convex/model/sections";
 import { newsletterDefaults } from "./newsletterDefaults";
+import { placeholderSeed } from "./formFieldPlaceholders";
 
 // ---------------------------------------------------------------------------
 // Section registry - the single source of truth for: plain-language labels,
@@ -2027,24 +2028,31 @@ export const SECTION_REGISTRY: Record<SectionType, SectionDef> = {
     defaultContent: (lang) => ({
       type: "contact",
       heading: pick(lang, "Kontakta oss", "Contact us", "Skontaktuj się z nami"),
+      // Each field arrives with the grey example text its TYPE has an honest
+      // one for (`lib/sections/formFieldPlaceholders.ts`). A free-text name
+      // field gets none, because any example we invent narrows what a visitor
+      // thinks they may write.
       fields: [
         {
           key: "name",
           label: pick(lang, "Namn", "Name", "Imię i nazwisko"),
           type: "text",
           required: true,
+          ...placeholderSeed("text", lang),
         },
         {
           key: "email",
           label: pick(lang, "E-post", "Email", "E-mail"),
           type: "email",
           required: true,
+          ...placeholderSeed("email", lang),
         },
         {
           key: "message",
           label: pick(lang, "Meddelande", "Message", "Wiadomość"),
           type: "textarea",
           required: true,
+          ...placeholderSeed("textarea", lang),
         },
       ],
       submitLabel: pick(lang, "Skicka", "Send", "Wyślij"),
@@ -2700,12 +2708,14 @@ export const SECTION_REGISTRY: Record<SectionType, SectionDef> = {
           label: pick(lang, "Namn", "Name", "Imię i nazwisko"),
           type: "text",
           required: true,
+          ...placeholderSeed("text", lang),
         },
         {
           key: "phone",
           label: pick(lang, "Telefon", "Phone", "Telefon"),
           type: "phone",
           required: true,
+          ...placeholderSeed("phone", lang),
         },
         // Optional, exactly like the quote wizard's contact step - but it has to
         // EXIST. Without it a lead arrives with no email, and the inbox's reply
@@ -2718,6 +2728,7 @@ export const SECTION_REGISTRY: Record<SectionType, SectionDef> = {
           label: pick(lang, "E-post", "Email", "E-mail"),
           type: "email",
           required: false,
+          ...placeholderSeed("email", lang),
         },
         {
           key: "details",
@@ -2729,6 +2740,7 @@ export const SECTION_REGISTRY: Record<SectionType, SectionDef> = {
           ),
           type: "textarea",
           required: false,
+          ...placeholderSeed("textarea", lang),
         },
       ],
       submitLabel: pick(lang, "Skicka förfrågan", "Send request", "Wyślij zapytanie"),

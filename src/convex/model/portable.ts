@@ -367,6 +367,7 @@ export const portableSiteV1 = v.object({
       ),
       firstPublishedAt: v.optional(v.number()),
       contentType: v.optional(contentTypeValidator),
+      hasAiWrittenContent: v.optional(v.boolean()),
       plannedFor: v.optional(v.number()),
       // Draft/held pages must survive agency migrations without becoming live
       // on the customer's first "publish all" operation.

@@ -602,6 +602,13 @@ export const sectionContent = v.union(
     // (a pasted link, a sandboxed embed, or the native engine).
     cta: v.optional(ctaRef),
     source: v.optional(bookingSource),
+    // The grey example text inside the three questions every booking asks.
+    // Optional and absent on every section written before 2026-08-25, which
+    // keeps rendering the built-in translated wording, so no live hemsida
+    // changes until an owner writes their own.
+    namePlaceholder: v.optional(v.string()),
+    emailPlaceholder: v.optional(v.string()),
+    phonePlaceholder: v.optional(v.string()),
   }),
 
   v.object({
