@@ -1,5 +1,28 @@
 # Shared import mapping rules
 
+## Fidelity contract
+
+A package of typed SnabbSajt sections is a rebuild on SnabbSajt blocks. It
+keeps the source's words, images and facts. It replaces the layout, fonts and
+colours with SnabbSajt's. So:
+
+- Never present a package as "your site, imported", "migrated", or "moved".
+- The import report and the chat message both say, in plain words: **"rebuilt
+  on SnabbSajt blocks, will not look the same"**. Not once in a footnote, but
+  where the human reads the result.
+- Build a package only after the human asked for a new design on SnabbSajt
+  blocks. When the human wants the same look, stop and route: their own
+  Next.js/React repo goes to the `make-site-editable` skill; a live URL, static
+  export or HTML zip goes to the app's exact copy (onboarding "Move your
+  website" / "Flytta din hemsida", or Settings, Backup & move / Inställningar,
+  Säkerhetskopia och flytt). See Step 0 of the `import-website` skill.
+- Set `provenance.sourceUrl` in `site.json` whenever the source is reachable
+  at a URL. The app reads it to offer the exact copy instead of the rebuild.
+  A package built from a live address without it is incomplete.
+- Pick a registered section type only when the source region truly is that
+  kind of content. Force nothing into the nearest shape; skip it with a
+  reason instead.
+
 These rules govern AI-assisted changes after the deterministic SnabbSajt HTML
 import. They are a review workflow, not permission to execute or rebuild the
 source application.

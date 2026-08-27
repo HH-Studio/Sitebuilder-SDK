@@ -697,6 +697,10 @@ export async function runSiteCommand(
         output.stdout(`Imported: ${response.pages} page(s), ${response.sections} section(s), ${result.site.assets.length} asset(s)`);
         output.stdout(`Review: ${join(result.directory, "import-report.md")}`);
         output.stdout(`Next: snabbsajt site import approve ${shellArg(result.directory)} --yes`);
+        // A package is a rebuild on SnabbSajt sections, never a copy. Say so where the
+        // agent reads it, and point at the lane that does give an exact copy.
+        const exactCopySource = /^https?:\/\//i.test(input) ? input : "the site's address";
+        output.stdout(`Note: this package rebuilds the site on SnabbSajt sections and will not look identical. For an exact copy, paste ${exactCopySource} into SnabbSajt (Move your website).`);
         output.stdout("Schema validation:");
         printReport(result.validation, output);
       }

@@ -12,6 +12,30 @@ that validated against an older CLI still validates against a newer one.
 
 ## [Unreleased]
 
+### Changed
+
+- **The import contract defaults to an identical copy.** The first real user
+  asked his agent to "import" his hand-built Next.js site. The agent followed
+  `AGENT-QUICKSTART.md` and the `import-website` skill, which said
+  "editability beats pixel fidelity, pick the closest section type", and
+  delivered a package of generic SnabbSajt sections that looked like a
+  different website. That sentence is gone everywhere. `import-website` is now
+  `2.0.0` and opens with a hard gate, Step 0: "Should the site look exactly
+  like it does today?", default yes. Same look and their own Next.js/React repo
+  routes to `make-site-editable`; same look and a live URL, static export or
+  HTML zip routes to the app's exact copy ("Move your website" / "Flytta din
+  hemsida", or Settings, Backup & move), where the human pastes the address
+  and the agent builds nothing. The package workflow runs only when the human
+  asks for a new design on SnabbSajt blocks, and the agent must say "rebuilt
+  on SnabbSajt blocks, will not look the same" in chat and in the report. The
+  shared mapping rules carry the same fidelity contract and require
+  `provenance.sourceUrl` in `site.json` whenever the source has an address.
+  `snabbsajt-getting-started` (`1.1.0`) asks the same question before it
+  routes, `AGENT-QUICKSTART.md`, `README.md`, `docs/quickstart.md` and
+  `prompts/convert-to-snabbsajt.md` say the same thing, and
+  `snabbsajt site import html` prints one closing line saying the package will
+  not look identical and where the exact copy lives.
+
 ## [0.4.1] (2026-08-26)
 
 ### Fixed

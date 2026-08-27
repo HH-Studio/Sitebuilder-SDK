@@ -85,7 +85,19 @@ creates a new unpublished draft. It never overwrites or publishes a site.
 
 No API key is needed. Every command runs locally.
 
-To convert rendered HTML:
+**Want the site to look exactly like it does today? Do not build a package.**
+A package of typed sections is a redesign on SnabbSajt blocks: it keeps your
+words, images and facts and replaces the layout, fonts and colours. For an
+identical copy there are two lanes. Your own Next.js/React repo that you keep
+deploying goes through `snabbsajt init --agency` and `defineBlock` (the
+`make-site-editable` skill); your code still draws the site. A live URL,
+static export or HTML zip goes into the app itself: onboarding "Move your
+website" ("Flytta din hemsida"), or Settings > Backup & move, paste the
+address or drop the zip. The app captures the rendered page and keeps text,
+images and links editable. The package workflow below is for a new design, and
+the agent must say so before it starts.
+
+To convert rendered HTML into a redesign on SnabbSajt blocks:
 
 ```bash
 snabbsajt site import html https://example.com -o ./example-import

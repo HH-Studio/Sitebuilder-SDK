@@ -2,7 +2,7 @@
 name: snabbsajt-getting-started
 description: Entry point for any SnabbSajt work - picks the right layer (local CLI, delivery token, or MCP), gets the terminal or agent connected, and routes to the sibling skill that does the job. Use when the human mentions SnabbSajt or snabbsajt, asks to connect/koppla a site, install the CLI or skills, says "vad kan jag gora med snabbsajt", "connect my site", "set up the MCP", "pair my terminal", or asks for SnabbSajt work without saying which tool. Start here when unsure which SnabbSajt skill applies.
 metadata:
-  skill-version: "1.0.0"
+  skill-version: "1.1.0"
   minimum-cli-version: "0.4.0"
   portable-format: "sajt-site@1"
   report-contract: "snabbsajt-import-report@1"
@@ -25,6 +25,17 @@ wastes a session.
 
 Rule of thumb: **does the site exist yet?** No → package layer. Yes → MCP (or
 `admin`) layer.
+
+Second rule, and it comes first when the human already has a website
+somewhere else: **should it look exactly like it does today?** The default is
+yes. A package of typed sections cannot give that; it is a redesign on
+SnabbSajt blocks. So before `import-website`, route: their own Next.js/React
+repo that they keep deploying goes to `make-site-editable`; a live URL, static
+export or HTML zip goes to the app's exact copy (onboarding "Move your
+website" / "Flytta din hemsida", or Settings, Backup & move / Inställningar,
+Säkerhetskopia och flytt), where the human pastes the address and you build
+nothing. Only "I want a new design on SnabbSajt blocks" leads to
+`import-website`.
 
 ## Step 1 — state check before anything else
 
@@ -74,7 +85,9 @@ Scopes, tool catalogue, and the confirm handshake:
 
 | The human wants | Skill |
 | --- | --- |
-| an existing website converted into a SnabbSajt package | `import-website` |
+| their own Next.js/React site editable in SnabbSajt, looking exactly as it does today | `make-site-editable` |
+| a live URL, static export or HTML zip in SnabbSajt, looking exactly as it does today | no skill: the app's exact copy. Hand over the address and the click path above, then stop |
+| an existing website rebuilt on SnabbSajt blocks (a new design; the human said so) | `import-website` |
 | a new site built from a brief, for a customer to edit | `build-snabbsajt-site` |
 | a package checked before anyone imports it | `review-site-package` |
 | an existing live site read, edited, or prepared for publish | `manage-snabbsajt-site` |

@@ -1,7 +1,7 @@
 # Convert an existing website to a SnabbSajt Site Kit package
 
 ```
-prompt-version: 1.0.0
+prompt-version: 1.1.0
 requires-cli: ">=0.3.0"        # snabbsajt --version must satisfy this
 portable-format: sajt-site@1
 report-contract: snabbsajt-import-report@1
@@ -84,9 +84,15 @@ for (const t of m.SECTION_TYPES)
 
 (In the SDK repo itself, `contract/portable-v1.json` is the same truth as a
 JSON schema.) Each `SECTION_REGISTRY` entry also carries `whenToUse` — read it
-when unsure which type fits. Pick the closest type/variant; editability beats
-pixel fidelity. If no type fits, skip with a reason and note it as a candidate
-for a new generic variant — do not contort content to fake a layout.
+when unsure which type fits. Use a type only when the region truly is that kind
+of content. If no type fits, skip with a reason and note it as a candidate for
+a new generic variant; do not contort content to fake a layout. This package is
+a redesign on SnabbSajt blocks and will not look like the source site. Say so
+in chat and in the report, and set `provenance.sourceUrl` in `site.json` when
+the source has an address. If the human wants the same look, stop: their own
+Next.js/React repo goes through `snabbsajt init --agency` (the
+`make-site-editable` skill), and a live URL or static export goes into the app
+as an exact copy ("Move your website" / Settings > Backup & move).
 
 Package rules that bite:
 

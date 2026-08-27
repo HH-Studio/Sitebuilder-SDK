@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "releaseVersion": "1.4.0",
+  "releaseVersion": "1.5.0",
   "minimumCliVersion": "0.1.0",
   "portableFormat": {
     "format": "sajt-site",
@@ -13,11 +13,11 @@
   "skills": [
     {
       "name": "snabbsajt-getting-started",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "0ce7996404d9cd89b7e5afbe376433e60a65239899d052264796db4d67b8337f"
+          "sha256": "d460fd384c4aaeeea04afce034dba8bec5b5a4a27ebfda80db0d862e11a2c197"
         },
         {
           "path": "references/cli-commands.md",
@@ -33,16 +33,16 @@
     },
     {
       "name": "import-website",
-      "version": "1.3.0",
+      "version": "2.0.0",
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "70cd6aab3eaa3a42262685b7092a9927e03e513afe0a577897f6ede30981e44a"
+          "sha256": "c3376233570ed55cf561ccbd0a2c57244481b0a3e54f8c20135da5fca6db0ae3"
         },
         {
           "path": "references/import-mapping-rules.md",
           "source": "shared/import-mapping-rules.md",
-          "sha256": "55b078378d75ff43b1a1ac7a01a6927dbd40c7c22f55c5fae66343f2f150a792"
+          "sha256": "0f26eb9b0462016b45ac8ad08fdf24ba8f6ad45ad8d5d118cb82e6fa6e2a2ccd"
         },
         {
           "path": "references/cli-commands.md",

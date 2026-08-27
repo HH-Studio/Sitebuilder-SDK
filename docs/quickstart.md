@@ -25,7 +25,14 @@ inside the generated folder.
 Edit `site.json`. Start with the real page list, business facts, headings,
 paragraphs, calls to action, and images from the source site.
 
-Map visual regions to the closest built-in section type. Common mappings:
+A package is a redesign on SnabbSajt's built-in sections. It will not look
+like the source site. If the site must look exactly as it does today, do not
+build a package: use `snabbsajt init --agency` for your own Next.js/React repo,
+or paste the live address into the app ("Move your website" / Settings > Backup
+& move) for an exact copy.
+
+For a redesign, map each source region to the built-in section type that truly
+holds that kind of content. Common mappings:
 
 | Source region | SnabbSajt section |
 | --- | --- |
