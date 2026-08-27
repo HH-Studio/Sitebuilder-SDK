@@ -1,7 +1,7 @@
 # Convert an existing website to a SnabbSajt Site Kit package
 
 ```
-prompt-version: 1.1.0
+prompt-version: 2.0.0
 requires-cli: ">=0.3.0"        # snabbsajt --version must satisfy this
 portable-format: sajt-site@1
 report-contract: snabbsajt-import-report@1
