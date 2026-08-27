@@ -11,6 +11,7 @@ import {
   richBlock,
 } from "./content";
 import { restaurantMenuValidator } from "./restaurantMenu";
+import { composedNode } from "./composed";
 
 // ---------------------------------------------------------------------------
 // Section content model. `sectionContent` is a discriminated union keyed by
@@ -1314,6 +1315,18 @@ export const sectionContent = v.union(
     emptyNote: v.optional(v.string()),
   }),
 
+  // "Egna block": a layout a model COMPOSED from a screenshot, out of our own
+  // primitives. A flat node array with a parent index, exactly like `imported`
+  // — but where a capture's authority is its sanitiser, this union is genuinely
+  // authoritative over the whole tree, because every value in it is an enum or
+  // a bounded string. No colour, no unit, no CSS. See lib/sections/composed.ts.
+  v.object({
+    type: v.literal("composed"),
+    /** Owner-facing name in the section list and the block library. */
+    label: v.optional(v.string()),
+    nodes: v.array(composedNode),
+  }),
+
   // section:new-content-anchor — `bun run section:new <type>` inserts new
   // content shapes ABOVE this line. Do not remove or rename this comment.
 );
@@ -1371,6 +1384,7 @@ export const SECTION_TYPES = [
   "imported",
   "events",
   "block",
+  "composed",
   // section:new-type-anchor — the scaffolder inserts new type literals above.
 ] as const;
 

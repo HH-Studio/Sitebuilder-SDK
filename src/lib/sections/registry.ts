@@ -4735,6 +4735,46 @@ export const SECTION_REGISTRY: Record<SectionType, SectionDef> = {
     }),
   },
 
+  "composed": {
+    type: "composed",
+    label: { sv: "Eget block", en: "Custom block", pl: "Własny blok" },
+    // `restricted`, like `imported` and `block`, and for a reason of its own:
+    // there is nothing to author from the picker. A composed block arrives from
+    // a screenshot the owner uploaded, or from their own library. Adding an
+    // empty one would put a blank band on the page with no way to fill it.
+    // This is also what keeps the AI planner and MCP from placing a shape they
+    // have never seen — the real guard, not a list somewhere else.
+    availability: "restricted",
+    whenToUse: {
+      sv: "Ett block du gjorde av en skärmbild. Det följer din hemsidas färger och typsnitt, så det ändrar sig när du byter utseende. Texter och bilder ändrar du som vanligt.",
+      en: "A block you made from a screenshot. It follows your website's own colours and type, so it changes when you change the look. Text and images edit as usual.",
+      pl: "Blok utworzony ze zrzutu ekranu. Używa kolorów i krojów Twojej strony, więc zmienia się razem z jej wyglądem. Tekst i obrazy edytujesz normalnie.",
+    },
+    category: "content",
+    icon: "LayoutGrid",
+    variants: [
+      {
+        key: "default",
+        label: { sv: "Standard", en: "Default", pl: "Standard" },
+        description: {
+          sv: "Formen från din skärmbild, byggd av hemsidans egna delar.",
+          en: "The shape from your screenshot, built out of the website's own parts.",
+          pl: "Układ ze zrzutu ekranu, zbudowany z części Twojej strony.",
+        },
+      },
+    ],
+    defaultVariant: "default",
+    defaultTone: "light",
+    allowedTones: ["light", "clear", "dark"],
+    // An empty tree. The picker never offers this (see `availability`), so the
+    // only reader is a caller that is about to replace the nodes wholesale.
+    defaultContent: () => ({
+      type: "composed",
+      nodes: [],
+    }),
+  },
+
+
   // section:new-registry-anchor — `bun run section:new <type>` inserts
   // registry entries above. Do not remove or rename this comment.
 };
