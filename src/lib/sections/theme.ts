@@ -147,8 +147,8 @@ const CATEGORY_TYPE: Record<
     eyebrowTransform: "uppercase",
     trackingEyebrow: "0.06em",
     sizes: {
-      display: "clamp(2.5rem, 1.34rem + 4.75cqw, 5.5rem)", // 40 -> 88
-      h1: "clamp(2rem, 1.6rem + 1.8cqw, 3rem)", // 32 -> 48
+      display: "clamp(2.25rem, 1.24rem + 4.15cqw, 5rem)", // 36 -> 80
+      h1: "clamp(1.875rem, 1.5rem + 1.55cqw, 2.75rem)", // 30 -> 44
       h2: "clamp(1.75rem, 1.35rem + 1.6cqw, 2.5rem)", // 28 -> 40
       h3: "clamp(1.1875rem, 1.1rem + 0.35cqw, 1.375rem)", // 19 -> 22
       lead: "clamp(1.125rem, 1.05rem + 0.35cqw, 1.3125rem)", // 18 -> 21
@@ -167,8 +167,8 @@ const CATEGORY_TYPE: Record<
     eyebrowTransform: "uppercase",
     trackingEyebrow: "0.09em",
     sizes: {
-      display: "clamp(2.625rem, 1.225rem + 5.74cqw, 6.25rem)", // 42 -> 100
-      h1: "clamp(2.125rem, 1.65rem + 2.1cqw, 3.25rem)", // 34 -> 52
+      display: "clamp(2.375rem, 1.175rem + 4.9cqw, 5.5rem)", // 38 -> 88
+      h1: "clamp(2rem, 1.55rem + 1.85cqw, 3rem)", // 32 -> 48
       h2: "clamp(1.875rem, 1.4rem + 1.9cqw, 2.75rem)", // 30 -> 44
       h3: "clamp(1.1875rem, 1.1rem + 0.35cqw, 1.375rem)",
       lead: "clamp(1.125rem, 1.05rem + 0.35cqw, 1.3125rem)",
@@ -184,8 +184,8 @@ const CATEGORY_TYPE: Record<
     eyebrowTransform: "none",
     trackingEyebrow: "0.01em",
     sizes: {
-      display: "clamp(2.5rem, 1.34rem + 4.75cqw, 5.5rem)", // 40 -> 88
-      h1: "clamp(2rem, 1.55rem + 2cqw, 3.25rem)", // 32 -> 52
+      display: "clamp(2.25rem, 1.24rem + 4.15cqw, 5rem)", // 36 -> 80
+      h1: "clamp(1.875rem, 1.45rem + 1.75cqw, 3rem)", // 30 -> 48
       h2: "clamp(1.75rem, 1.3rem + 1.8cqw, 2.625rem)", // 28 -> 42
       h3: "clamp(1.25rem, 1.15rem + 0.4cqw, 1.4375rem)", // 20 -> 23
       lead: "clamp(1.1875rem, 1.1rem + 0.35cqw, 1.375rem)", // 19 -> 22
@@ -203,8 +203,8 @@ const CATEGORY_TYPE: Record<
     eyebrowTransform: "none",
     trackingEyebrow: "0.02em",
     sizes: {
-      display: "clamp(2.875rem, 1.475rem + 5.74cqw, 6.5rem)", // 46 -> 104
-      h1: "clamp(2.25rem, 1.7rem + 2.4cqw, 3.75rem)", // 36 -> 60
+      display: "clamp(2.5rem, 1.32rem + 4.85cqw, 5.75rem)", // 40 -> 92
+      h1: "clamp(2.0625rem, 1.6rem + 2cqw, 3.25rem)", // 33 -> 52
       h2: "clamp(1.9375rem, 1.45rem + 2.1cqw, 3rem)", // 31 -> 48
       h3: "clamp(1.3125rem, 1.2rem + 0.45cqw, 1.5rem)", // 21 -> 24
       lead: "clamp(1.1875rem, 1.1rem + 0.35cqw, 1.375rem)",
@@ -220,8 +220,8 @@ const CATEGORY_TYPE: Record<
     eyebrowTransform: "uppercase",
     trackingEyebrow: "0.05em",
     sizes: {
-      display: "clamp(2.375rem, 1.458rem + 3.76cqw, 4.75rem)", // 38 -> 76
-      h1: "clamp(1.9375rem, 1.55rem + 1.7cqw, 2.75rem)", // 31 -> 44
+      display: "clamp(2.125rem, 1.29rem + 3.42cqw, 4.25rem)", // 34 -> 68
+      h1: "clamp(1.8125rem, 1.45rem + 1.5cqw, 2.5rem)", // 29 -> 40
       h2: "clamp(1.625rem, 1.3rem + 1.4cqw, 2.25rem)", // 26 -> 36
       h3: "clamp(1.1875rem, 1.1rem + 0.3cqw, 1.3125rem)", // 19 -> 21
       lead: "clamp(1.125rem, 1.05rem + 0.3cqw, 1.25rem)", // 18 -> 20
