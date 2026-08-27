@@ -1,5 +1,3 @@
-import { RESERVED_SUBDOMAINS } from "./reserved";
-
 // Shared URL-slug normalisation. Lives outside `convex/` so client components
 // can preview the address a title/slug will produce WITHOUT importing Convex
 // server code (backlog 0311). `convex/lib/slug.ts` re-exports this, so the
@@ -69,7 +67,13 @@ function stripNameNoise(name: string): string {
  *   "Annas Salong AB"         -> ["annas-salong", "annassalong"]
  *   "Harrys Bygg"             -> []
  */
-export function shortNameCandidates(name: string): string[] {
+export function shortNameCandidates(
+  name: string,
+  /** Subdomains a site may never take (`lib/site/reserved.ts`). Passed in
+   *  rather than imported: this file is mirrored into the Site Kit SDK, and
+   *  the reserved list is app-only. */
+  reserved: ReadonlySet<string> = new Set(),
+): string[] {
   const full = slugify(name);
   const stripped = stripNameNoise(name);
   if (!stripped || stripped === name.trim()) return [];
@@ -78,7 +82,7 @@ export function shortNameCandidates(name: string): string[] {
   for (const candidate of [short, short.replace(/-/g, "")]) {
     if (candidate.length < MIN_SHORT_SLUG_LENGTH) continue;
     if (candidate === full) continue;
-    if (RESERVED_SUBDOMAINS.has(candidate)) continue;
+    if (reserved.has(candidate)) continue;
     if (out.includes(candidate)) continue;
     out.push(candidate);
   }
@@ -87,6 +91,6 @@ export function shortNameCandidates(name: string): string[] {
 
 /** The address a NEW website will most likely get: the first short candidate,
  *  else the full slug. The server may still suffix it on collision. */
-export function preferredSlug(name: string): string {
-  return shortNameCandidates(name)[0] ?? slugify(name);
+export function preferredSlug(name: string, reserved?: ReadonlySet<string>): string {
+  return shortNameCandidates(name, reserved)[0] ?? slugify(name);
 }
