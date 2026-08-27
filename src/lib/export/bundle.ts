@@ -46,10 +46,22 @@ export type BundleManifestFont = {
   bytes: number;
 };
 
+/** Written into every backup the app itself exports. The file lane reads it
+ *  to tell an owner's own backup (restore it, no questions) from a package an
+ *  agent or the SDK built (a rebuild on our blocks, held and explained first;
+ *  see lib/import/rebuiltPackage.ts). Absent on older backups and on every
+ *  SDK package, and absence counts as "not the app", because the cost of a
+ *  needless question on an old backup is one press, and the cost of the other
+ *  mistake was our first real user (2026-08-27). */
+export const APP_BUNDLE_PRODUCER = "snabbsite-app" as const;
+
 export type BundleManifest = {
   format: typeof BUNDLE_FORMAT;
   version: typeof BUNDLE_VERSION;
   exportedAt: string;
+  /** `APP_BUNDLE_PRODUCER` when the app wrote the bundle. Optional so every
+   *  older backup and every SDK package still parses. */
+  producer?: string;
   assets: BundleManifestAsset[];
   fonts: BundleManifestFont[];
 };
@@ -216,7 +228,14 @@ export async function collectBundleBlobs(
 
   return {
     files,
-    manifest: { format: BUNDLE_FORMAT, version: BUNDLE_VERSION, exportedAt, assets, fonts },
+    manifest: {
+      format: BUNDLE_FORMAT,
+      version: BUNDLE_VERSION,
+      producer: APP_BUNDLE_PRODUCER,
+      exportedAt,
+      assets,
+      fonts,
+    },
     totalBytes,
     skipped,
   };
