@@ -1,8 +1,8 @@
 ---
 name: make-site-editable
-description: Turn an agency's own Next.js app into a SnabbSajt agency site - wrap components in defineBlock, declare the lists they fill in with defineCollection, move each page's composition into SnabbSajt content, push, and walk the doctor contract. Use when the human says "make this site editable", "gor den har sajten redigerbar", "connect this repo to SnabbSajt", "our client should be able to edit this", or asks to add a field to a block their client cannot change yet. The code keeps rendering the site; SnabbSajt only holds the content.
+description: Turn an agency's own Next.js app into a Snabbsite agency site - wrap components in defineBlock, declare the lists they fill in with defineCollection, move each page's composition into Snabbsite content, push, and walk the doctor contract. Use when the human says "make this site editable", "gor den har sajten redigerbar", "connect this repo to Snabbsite", "our client should be able to edit this", or asks to add a field to a block their client cannot change yet. The code keeps rendering the site; Snabbsite only holds the content.
 metadata:
-  skill-version: "1.1.0"
+  skill-version: "1.2.0"
   minimum-cli-version: "0.5.0"
   portable-format: "sajt-site@1"
 ---
@@ -12,13 +12,44 @@ metadata:
 The human is an agency. They wrote this app, they keep writing it, and their
 client should be able to change the words and pictures without asking them.
 
-**Their code keeps rendering the site.** SnabbSajt holds the CONTENT and the
+**Their code keeps rendering the site.** Snabbsite holds the CONTENT and the
 editor. Nothing here moves their design system, their components or their
 deployment anywhere.
 
+## The one story this skill is half of
+
+There are two ways into Snabbsite, and both keep the look. This skill is the
+first one:
+
+> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
+> because your own code still draws the page.**
+> **Already have a website? Give us the zip or the address and you get an
+> exact copy you can edit.**
+
+If the human does NOT write this site themselves, they are on the second lane:
+hand them the address and the click path (onboarding, "Move your website" /
+"Flytta din hemsida", or Settings, Backup & move) and stop. The
+`import-website` skill carries that routing in full.
+
+**Why this lane is 100%, and why the other one is not.** Here the identity is
+by definition: their components render every pixel exactly as they do on their
+own deployment, and Snabbsite only holds the words and the pictures. The copy
+lane is measured instead, aiming at 99.9% of the pixels, and it is a still
+picture with no animations, because Snabbsite never runs a source's JavaScript
+in a visitor's browser. Never write "100%" about the copy lane.
+
+The five steps below are the same five the human reads on the marketing page
+and in the SDK quickstart: pick the path, connect it, say what the owner may
+change, hand it over, compare and publish. Steps 2 to 5 are the order of work
+in this file.
+
+Three worked examples of this lane, with a fidelity score per section, are
+being built under backlog `P0-3075`. Until that lands there is no `examples/`
+directory, so do not point anyone at one.
+
 ## What "done" means
 
-The client opens their website in SnabbSajt, sees the real page, changes a
+The client opens their website in Snabbsite, sees the real page, changes a
 heading, and the change is live after they publish. Nothing else counts as done,
 so do not stop at "the block compiles".
 
@@ -57,7 +88,7 @@ so do not stop at "the block compiles".
 3. **Map the component.** One line per block in `snabbsajt/components.ts`. Keep
    React out of `blocks.ts`: that file is data the CLI sends.
 
-4. **Move the composition, not the code.** The page's content becomes SnabbSajt
+4. **Move the composition, not the code.** The page's content becomes Snabbsite
    sections of type `block`. The component still draws it. If a value cannot be
    a field (a computed price, a live count), leave it in the code and say so.
 
@@ -67,7 +98,7 @@ so do not stop at "the block compiles".
    npx @snabbsajt/cli@latest push . --site <id>
    ```
 
-   Then open the site in SnabbSajt and check the page renders in the editor's
+   Then open the site in Snabbsite and check the page renders in the editor's
    frame. A block that shows a placeholder outline is one whose schema landed
    and whose component did not.
 
@@ -78,7 +109,7 @@ so do not stop at "the block compiles".
    ```
 
    Fix what it names. The four that bite most often: `images.remotePatterns` has
-   to allow the SnabbSajt asset host, the locales have to match the site's, the
+   to allow the Snabbsite asset host, the locales have to match the site's, the
    head tags have to survive the catch-all, and `frame-ancestors` has to allow
    the editor or the client sees a blank frame.
 

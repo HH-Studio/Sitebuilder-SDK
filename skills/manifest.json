@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "releaseVersion": "1.5.0",
+  "releaseVersion": "1.6.0",
   "minimumCliVersion": "0.1.0",
   "portableFormat": {
     "format": "sajt-site",
@@ -13,11 +13,11 @@
   "skills": [
     {
       "name": "snabbsajt-getting-started",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "d460fd384c4aaeeea04afce034dba8bec5b5a4a27ebfda80db0d862e11a2c197"
+          "sha256": "25b4ce63ecc41ef1df313c6d9c09544fa6134085349180d2a4a4a0080846f46f"
         },
         {
           "path": "references/cli-commands.md",
@@ -27,17 +27,17 @@
         {
           "path": "references/mcp-tools.md",
           "source": "shared/mcp-tools.md",
-          "sha256": "94924883c2cf2fb77b8e23bd98706785df8f5d5420c95aa958682f94917136e4"
+          "sha256": "9b7c1784b4d92429afbf49c0451c6a41f996f8f213187d3595b0b725807e7094"
         }
       ]
     },
     {
       "name": "import-website",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "c3376233570ed55cf561ccbd0a2c57244481b0a3e54f8c20135da5fca6db0ae3"
+          "sha256": "c8794394a9fc744fc6845b581de9c6b140a50ede23f67691824530a97526e16b"
         },
         {
           "path": "references/import-mapping-rules.md",
@@ -107,17 +107,17 @@
         {
           "path": "references/mcp-tools.md",
           "source": "shared/mcp-tools.md",
-          "sha256": "94924883c2cf2fb77b8e23bd98706785df8f5d5420c95aa958682f94917136e4"
+          "sha256": "9b7c1784b4d92429afbf49c0451c6a41f996f8f213187d3595b0b725807e7094"
         }
       ]
     },
     {
       "name": "make-site-editable",
-      "version": "1.0.0",
+      "version": "1.3.0",
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "4e0742a8d41212fbcf6c8cb88a9eb514594a508fa3505cf77acbb34ad4ff5232"
+          "sha256": "76247ae7c517453f06f7a15e79a3693757968ecd1727711bd18b5213581698dc"
         },
         {
           "path": "references/cli-commands.md",
@@ -127,7 +127,7 @@
         {
           "path": "references/mcp-tools.md",
           "source": "shared/mcp-tools.md",
-          "sha256": "94924883c2cf2fb77b8e23bd98706785df8f5d5420c95aa958682f94917136e4"
+          "sha256": "9b7c1784b4d92429afbf49c0451c6a41f996f8f213187d3595b0b725807e7094"
         }
       ]
     }

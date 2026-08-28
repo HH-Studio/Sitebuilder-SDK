@@ -1,4 +1,4 @@
-# SnabbSajt MCP reference
+# Snabbsite MCP reference
 
 The MCP server is the **live-site** surface: it reads and edits a site that
 already exists. The CLI's `site` namespace builds packages offline and never
@@ -6,7 +6,7 @@ touches a live site. Use this reference when a tool is denied, when you need to
 know which tool exists, or before asking the human to widen a connection.
 
 Endpoint: `https://snabbsajt.com/api/mcp` (Streamable HTTP, OAuth via the
-human's SnabbSajt login). The human creates connections in the app under
+human's Snabbsite login). The human creates connections in the app under
 AI-integrationer; you cannot mint one.
 
 ## Contents
@@ -70,6 +70,24 @@ your changes from work that was already waiting.
 `migrate_site_from_url`
 
 Every one of these writes the DRAFT. The live site does not change.
+
+**Before you reach for `import_site`, read the two ways in.** Both keep the
+look, and neither is a package:
+
+> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
+> because your own code still draws the page.**
+> **Already have a website? Give us the zip or the address and you get an
+> exact copy you can edit.**
+
+So a human who writes the site themselves goes to the `make-site-editable`
+skill, not to a tool here. A human who already has a website goes to
+`migrate_site_from_url`, or to the app's own "Move your website" lane when
+they hold a zip rather than an address. `import_site` lands a package, which is
+a redesign on Snabbsite blocks, and it runs only when the human asks for a new
+design in those words. `migrate_site_from_url` keeps the look by default and
+its score is MEASURED, aiming at 99.9% of the pixels, with no animations
+because we never run a source's JavaScript in a visitor's browser. Never write
+"100%" about a captured copy.
 
 \* `get_section_json`, `replace_section_content` and `set_section_layout`
 additionally need the workspace's advanced-editor (Labs) grant and fail closed

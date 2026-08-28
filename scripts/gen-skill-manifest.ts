@@ -26,12 +26,12 @@ import { join, resolve } from "node:path";
 const SKILLS = [
   {
     name: "snabbsajt-getting-started",
-    version: "1.1.0",
+    version: "1.2.0",
     references: ["cli-commands.md", "mcp-tools.md"],
   },
   {
     name: "import-website",
-    version: "2.0.0",
+    version: "3.0.0",
     references: ["import-mapping-rules.md", "cli-commands.md", "section-schema.md"],
   },
   {
@@ -51,12 +51,12 @@ const SKILLS = [
   },
   {
     name: "make-site-editable",
-    version: "1.0.0",
+    version: "1.2.0",
     references: ["cli-commands.md", "mcp-tools.md"],
   },
 ] as const;
 
-const RELEASE_VERSION = "1.5.0";
+const RELEASE_VERSION = "1.6.0";
 const MINIMUM_CLI_VERSION = "0.1.0";
 
 const skillsRoot = resolve(import.meta.dirname, "../skills");
