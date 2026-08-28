@@ -36,9 +36,9 @@ those words.
 1. **Pick the path.** You write the site in Next.js and keep deploying it:
    the SDK. The website already exists as an address or a zip: the copy.
 2. **Connect it.** SDK: run `npx @snabbsajt/cli@latest init --agency` in the
-   repo. Copy: sign in to Snabbsite, open "Flytta din hemsida" / "Move your
-   website" (also under Settings → Backup & move), and paste the address or
-   drop the zip.
+   repo. Copy: sign in to Snabbsite and open "Flytta din hemsida", which is
+   "Move your website" in English and also sits under Settings → Backup &
+   move. Paste the address there, or drop the zip.
 3. **Say what the owner may change.** SDK: wrap each section in
    `defineBlock`, one field per thing an owner would ring you about. Copy:
    nothing to mark, because every text, image and link is already editable.
