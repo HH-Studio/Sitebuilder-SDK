@@ -21,12 +21,23 @@
 //  - **No inference from the component.** A prop type cannot say "this is a
 //    picture the client may swap" or "this text is one line". The declaration
 //    is the source of truth precisely because the type system cannot be.
-//  - **The same six field kinds as the app**, no more: `text`, `richtext`,
-//    `image`, `link`, `select`, `boolean`. A seventh here that the app does not
-//    know would be stored and then refused on the first edit.
+//  - **The same eight field kinds as the app**, no more: `text`, `richtext`,
+//    `image`, `link`, `select`, `boolean`, `list`, `icon`. A ninth here that the
+//    app does not know would be stored and then refused on the first edit.
 // ---------------------------------------------------------------------------
 
-/** What one field in a block may hold. Mirrors the app's `BlockFieldKind`. */
+/** What one field in a block may hold. Mirrors the app's `BlockFieldKind`.
+ *
+ *  `list` and `icon` joined the six on 2026-08-28, because they are the last
+ *  two things a client actually asks for on a page you built: move the third
+ *  card above the second, and pick the little picture beside a service.
+ *
+ *  A `list` is ONE level deep. A list inside a list is refused, because the
+ *  moment items nest, "move this one up" stops having a single answer.
+ *
+ *  An `icon` is a `select` over names YOU register beside your own components.
+ *  We ship you no icon set and we never draw one: the name travels, your
+ *  component decides what it draws. */
 export const BLOCK_FIELD_KINDS = [
   "text",
   "richtext",
@@ -34,6 +45,8 @@ export const BLOCK_FIELD_KINDS = [
   "link",
   "select",
   "boolean",
+  "list",
+  "icon",
 ] as const;
 
 export type BlockFieldKind = (typeof BLOCK_FIELD_KINDS)[number];
@@ -47,10 +60,17 @@ export type BlockField = {
   /** A field the client may leave empty. Absent means required, because your
    *  component is written against props that exist. */
   optional?: boolean;
-  /** `select` only: the values you handle. */
+  /** `select` and `icon` only: the values you handle. For an `icon` these are
+   *  the names you registered beside your own components. */
   options?: readonly string[];
   /** `text` and `richtext` only. The app clamps this to its own ceiling. */
   maxLength?: number;
+  /** `list` only: the fields ONE item carries. Required and non-empty, and none
+   *  of them may itself be a `list`. */
+  fields?: readonly BlockField[];
+  /** `list` only: how many items the client may keep. The app clamps this to
+   *  its own ceiling of 40. */
+  maxItems?: number;
   /** Keep this field for yourselves. Every NEW placement of the block arrives
    *  with it locked, so the price you negotiated and the legal line are frozen
    *  for the client without anyone locking them section by section.
@@ -88,6 +108,87 @@ export class BlockDefinitionError extends Error {
 }
 
 /**
+ * Check one declared field list, and the field lists inside it.
+ *
+ * Recursive so a list item's fields get the SAME checks as the top level: a
+ * second, looser copy for sub-fields is exactly how a select with no options
+ * would reach a client's editor one level down.
+ *
+ * `depth` is what keeps a list one level deep. At depth 1 the `list` kind is
+ * refused, and the message says so rather than naming an unknown kind.
+ */
+function checkFields(
+  type: string,
+  fields: readonly BlockField[] | undefined,
+  depth: 0 | 1,
+  path: string,
+): void {
+  if (!Array.isArray(fields)) {
+    throw new BlockDefinitionError(`Block "${type}" has no fields array${path ? ` at "${path}"` : ""}.`);
+  }
+  const seen = new Set<string>();
+  for (const field of fields) {
+    const key = field?.key?.trim() ?? "";
+    const at = `${path}${key}`;
+    if (!ID_RE.test(key)) {
+      throw new BlockDefinitionError(
+        `Block "${type}" has a field key "${field?.key}" that is not a plain identifier.`,
+      );
+    }
+    // Refused rather than collapsed: your component reads one of them and we
+    // cannot know which, so the page's behaviour would depend on key ordering.
+    if (seen.has(key)) {
+      throw new BlockDefinitionError(`Block "${type}" declares "${at}" twice.`);
+    }
+    seen.add(key);
+    if (!BLOCK_FIELD_KINDS.includes(field.kind)) {
+      throw new BlockDefinitionError(
+        `Block "${type}" field "${at}" has kind "${field.kind}", which is not one of: ${BLOCK_FIELD_KINDS.join(", ")}.`,
+      );
+    }
+    if (
+      (field.kind === "select" || field.kind === "icon") &&
+      (!field.options || field.options.length === 0)
+    ) {
+      throw new BlockDefinitionError(
+        `Block "${type}" field "${at}" is a ${field.kind} with no options.`,
+      );
+    }
+    if (field.kind === "list") {
+      if (depth !== 0) {
+        throw new BlockDefinitionError(
+          `Block "${type}" field "${at}" is a list inside a list. A list is one level deep: give the item a text, image, link, select, icon or boolean field instead.`,
+        );
+      }
+      if (!Array.isArray(field.fields) || field.fields.length === 0) {
+        throw new BlockDefinitionError(
+          `Block "${type}" field "${at}" is a list with no fields. Declare what one item holds.`,
+        );
+      }
+      checkFields(type, field.fields, 1, `${at}.`);
+    }
+    // Refused rather than coerced. The app only ever carries `locked: true`, so
+    // a truthy string here would read as locked in your editor and arrive
+    // unlocked on the client's hemsida - the one way this feature can fail
+    // silently.
+    if (field.locked !== undefined && typeof field.locked !== "boolean") {
+      throw new BlockDefinitionError(
+        `Block "${type}" field "${at}" has a non-boolean "locked".`,
+      );
+    }
+    // A lock is a content PATH, and a list's items have no fixed count, so
+    // "the price on every card" is not one path the app could name. The app
+    // drops it silently; saying so here is the difference between a lock you
+    // think you shipped and one you know you did not.
+    if (field.locked === true && depth !== 0) {
+      throw new BlockDefinitionError(
+        `Block "${type}" field "${at}" is locked inside a list. Lock the list itself instead - a lock is one path, and a list's items have no fixed count.`,
+      );
+    }
+  }
+}
+
+/**
  * Declare one block.
  *
  * Throws on a declaration the app would refuse, and throws EARLY: this runs in
@@ -103,6 +204,23 @@ export class BlockDefinitionError extends Error {
  *     { key: "title", kind: "text", label: "Rubrik" },
  *     { key: "note", kind: "richtext", optional: true },
  *     { key: "cta", kind: "link", label: "Knapp" },
+ *     // The client reorders these in the editor, and each one carries its own
+ *     // fields. `icon` names come from YOUR map, so `star` is whatever your
+ *     // component draws for "star".
+ *     {
+ *       key: "tiers",
+ *       kind: "list",
+ *       label: "Paket",
+ *       maxItems: 4,
+ *       fields: [
+ *         { key: "name", kind: "text", label: "Namn" },
+ *         { key: "price", kind: "text", label: "Pris" },
+ *         { key: "mark", kind: "icon", label: "Ikon", options: ["star", "bolt"] },
+ *       ],
+ *     },
+ *     // A style choice is an ordinary `select`. There is no separate kind for
+ *     // it, and there does not need to be: your component reads the string.
+ *     { key: "tone", kind: "select", label: "Ton", options: ["light", "dark"] },
  *   ],
  *   variants: ["light", "dark"],
  * });
@@ -118,40 +236,7 @@ export function defineBlock(definition: BlockDefinition): BlockDefinition {
   if (!Array.isArray(definition.fields)) {
     throw new BlockDefinitionError(`Block "${type}" has no fields array.`);
   }
-  const seen = new Set<string>();
-  for (const field of definition.fields) {
-    const key = field?.key?.trim() ?? "";
-    if (!ID_RE.test(key)) {
-      throw new BlockDefinitionError(
-        `Block "${type}" has a field key "${field?.key}" that is not a plain identifier.`,
-      );
-    }
-    // Refused rather than collapsed: your component reads one of them and we
-    // cannot know which, so the page's behaviour would depend on key ordering.
-    if (seen.has(key)) {
-      throw new BlockDefinitionError(`Block "${type}" declares "${key}" twice.`);
-    }
-    seen.add(key);
-    if (!BLOCK_FIELD_KINDS.includes(field.kind)) {
-      throw new BlockDefinitionError(
-        `Block "${type}" field "${key}" has kind "${field.kind}", which is not one of: ${BLOCK_FIELD_KINDS.join(", ")}.`,
-      );
-    }
-    if (field.kind === "select" && (!field.options || field.options.length === 0)) {
-      throw new BlockDefinitionError(
-        `Block "${type}" field "${key}" is a select with no options.`,
-      );
-    }
-    // Refused rather than coerced. The app only ever carries `locked: true`, so
-    // a truthy string here would read as locked in your editor and arrive
-    // unlocked on the client's hemsida - the one way this feature can fail
-    // silently.
-    if (field.locked !== undefined && typeof field.locked !== "boolean") {
-      throw new BlockDefinitionError(
-        `Block "${type}" field "${key}" has a non-boolean "locked".`,
-      );
-    }
-  }
+  checkFields(type, definition.fields, 0, "");
   return {
     ...definition,
     type,

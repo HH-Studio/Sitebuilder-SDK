@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  BLOCK_FIELD_KINDS,
   blockLibrary,
   BlockDefinitionError,
+  blockSchemasForPackage,
   defineBlock,
 } from "../src/lib/blocks/defineBlock";
 import {
@@ -113,6 +115,192 @@ describe("declaring a block", () => {
     expect(() => blockLibrary(pricing, { ...pricing, label: "Annan" })).toThrow(
       /both called/,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The two kinds a client actually asks for: reorderable cards, and the little
+// picture beside one. Added 2026-08-28 (the app's plan
+// P0-2026-08-28-same-website-sdk-examples-100-percent.md, slice 3).
+//
+// Both halves of this contract have to agree or the feature fails SILENTLY: a
+// kind this file accepts and the app does not is stored by `snabbsajt push`
+// and then refused on the client's first edit, hours later, in a place the
+// developer is not looking. So the list itself is pinned here as well.
+// ---------------------------------------------------------------------------
+
+const services = defineBlock({
+  type: "service-cards",
+  label: "Tjänster",
+  fields: [
+    { key: "heading", kind: "text", label: "Rubrik" },
+    {
+      key: "items",
+      kind: "list",
+      label: "Kort",
+      maxItems: 6,
+      fields: [
+        { key: "title", kind: "text", label: "Rubrik" },
+        { key: "body", kind: "richtext", label: "Text", optional: true },
+        { key: "mark", kind: "icon", label: "Ikon", options: ["star", "bolt"] },
+        { key: "more", kind: "link", label: "Läs mer", optional: true },
+      ],
+    },
+    { key: "tone", kind: "select", label: "Ton", options: ["light", "dark"] },
+  ],
+});
+
+describe("lists, icons and declared style choices", () => {
+  it("declares the same eight kinds the app knows", () => {
+    // A ninth here, or a missing one, is the drift that ships a block the app
+    // refuses. Both ends carry this literal so neither can move alone.
+    expect([...BLOCK_FIELD_KINDS].sort()).toEqual([
+      "boolean",
+      "icon",
+      "image",
+      "link",
+      "list",
+      "richtext",
+      "select",
+      "text",
+    ]);
+  });
+
+  it("keeps a list's own fields, and carries them into the package", () => {
+    const list = services.fields.find((f) => f.key === "items");
+    expect(list?.kind).toBe("list");
+    expect(list?.fields?.map((f) => f.key)).toEqual([
+      "title",
+      "body",
+      "mark",
+      "more",
+    ]);
+    expect(list?.maxItems).toBe(6);
+    // What `snabbsajt push` actually sends. A sub-field lost here is a card the
+    // client can never fill in.
+    const [packaged] = blockSchemasForPackage(blockLibrary(services));
+    const packagedList = packaged.fields.find((f) => f.key === "items");
+    expect(packagedList?.fields?.map((f) => f.kind)).toEqual([
+      "text",
+      "richtext",
+      "icon",
+      "link",
+    ]);
+  });
+
+  it("refuses a list inside a list, and says why", () => {
+    expect(() =>
+      defineBlock({
+        type: "nested",
+        label: "x",
+        fields: [
+          {
+            key: "outer",
+            kind: "list",
+            fields: [
+              { key: "inner", kind: "list", fields: [{ key: "a", kind: "text" }] },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/one level deep/);
+  });
+
+  it("refuses a list that never says what one item holds", () => {
+    expect(() =>
+      defineBlock({
+        type: "empty-list",
+        label: "x",
+        fields: [{ key: "items", kind: "list" }],
+      }),
+    ).toThrow(/list with no fields/);
+    expect(() =>
+      defineBlock({
+        type: "empty-list",
+        label: "x",
+        fields: [{ key: "items", kind: "list", fields: [] }],
+      }),
+    ).toThrow(/list with no fields/);
+  });
+
+  it("checks a list item's fields with the same rules as the top level", () => {
+    // The whole point of one recursive checker. A looser second copy is how an
+    // icon with no options reaches a client's editor one level down and draws
+    // an empty menu.
+    expect(() =>
+      defineBlock({
+        type: "bad-item",
+        label: "x",
+        fields: [
+          {
+            key: "items",
+            kind: "list",
+            fields: [{ key: "mark", kind: "icon" }],
+          },
+        ],
+      }),
+    ).toThrow(/icon with no options/);
+    expect(() =>
+      defineBlock({
+        type: "bad-item",
+        label: "x",
+        fields: [
+          {
+            key: "items",
+            kind: "list",
+            fields: [
+              { key: "a", kind: "text" },
+              { key: "a", kind: "text" },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/items\.a" twice/);
+  });
+
+  it("names the field by its path, so a message points at a box", () => {
+    expect(() =>
+      defineBlock({
+        type: "bad-item",
+        label: "x",
+        fields: [
+          {
+            key: "items",
+            kind: "list",
+            // @ts-expect-error the app would refuse this kind on first edit.
+            fields: [{ key: "size", kind: "number" }],
+          },
+        ],
+      }),
+    ).toThrow(/items\.size/);
+  });
+
+  it("refuses a lock inside a list rather than dropping it in silence", () => {
+    // A lock is one content PATH, and a list's items have no fixed count, so
+    // "the price on every card" is not a path the app could name. Throwing is
+    // the difference between a lock you think you shipped and one you know you
+    // did not.
+    expect(() =>
+      defineBlock({
+        type: "locked-item",
+        label: "x",
+        fields: [
+          {
+            key: "items",
+            kind: "list",
+            fields: [{ key: "price", kind: "text", locked: true }],
+          },
+        ],
+      }),
+    ).toThrow(/Lock the list itself/);
+  });
+
+  it("treats a declared style choice as an ordinary select, with no third kind", () => {
+    // Owner answer 2026-08-28: light/dark and image left/right are `select`.
+    // Nothing else was built for them, and nothing needs to be.
+    const tone = services.fields.find((f) => f.key === "tone");
+    expect(tone?.kind).toBe("select");
+    expect(tone?.options).toEqual(["light", "dark"]);
   });
 });
 

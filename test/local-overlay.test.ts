@@ -274,7 +274,7 @@ describe("the field renderer", () => {
     expect(rows.find((row) => row.field.key === "price")?.locked).toBe(true);
   });
 
-  it("picks the right control for each of the six kinds", () => {
+  it("picks the right control for each kind that has one", () => {
     const byKey = Object.fromEntries(
       overlayRows(hero, {}).map((row) => [row.field.key, row.control]),
     );
@@ -299,6 +299,51 @@ describe("the field renderer", () => {
     const rows = overlayRows(hero, { cta: "https://example.com", compact: "yes" });
     expect(rows.find((row) => row.field.key === "cta")?.value).toBeUndefined();
     expect(rows.find((row) => row.field.key === "compact")?.value).toBeUndefined();
+  });
+
+  // The two kinds added 2026-08-28. An `icon` is a choice; a `list` is the one
+  // kind this overlay does not offer, and it says so by drawing nothing.
+  const withNewKinds = defineBlock({
+    type: "cards",
+    label: "Kort",
+    fields: [
+      { key: "heading", kind: "text" },
+      { key: "mark", kind: "icon", label: "Ikon", options: ["star", "bolt"] },
+      {
+        key: "items",
+        kind: "list",
+        label: "Kort",
+        fields: [{ key: "title", kind: "text" }],
+      },
+    ],
+  });
+
+  it("draws an icon as a choice over the agency's own names", () => {
+    const mark = overlayRows(withNewKinds, {}).find(
+      (row) => row.field.key === "mark",
+    );
+    expect(mark).toMatchObject({ control: "choice", options: ["star", "bolt"] });
+  });
+
+  it("draws no row for a list, rather than a text box that would flatten it", () => {
+    const rows = overlayRows(withNewKinds, { items: [{ title: "Tak" }] });
+    expect(rows.map((row) => row.field.key)).toEqual(["heading", "mark"]);
+  });
+
+  it("refuses a write to an icon the agency never registered, and to a list", () => {
+    const at = (key: string) =>
+      withNewKinds.fields.find((one) => one.key === key)!;
+    // Without an explicit case an icon falls through to the text branch, which
+    // accepts ANY string - so a name their component cannot draw lands in their
+    // file and is refused hours later on the push.
+    expect(checkFieldValue(at("mark"), "star")).toMatchObject({ ok: true });
+    expect(checkFieldValue(at("mark"), "IconStar")).toMatchObject({ ok: false });
+    expect(checkFieldValue(at("items"), [{ title: "Tak" }])).toMatchObject({
+      ok: false,
+    });
+    // And it says where the client CAN do it, rather than only refusing.
+    const refusal = checkFieldValue(at("items"), [{ title: "Tak" }]);
+    expect(refusal.ok === false && refusal.reason).toMatch(/dashboard/);
   });
 });
 

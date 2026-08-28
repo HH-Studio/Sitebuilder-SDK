@@ -19,8 +19,15 @@
 //    typo in a request cannot grow a prop the component does not read.
 //  - **`locked` is honoured.** A locked field is drawn read-only and refused on
 //    write. It is the agency's own price line and legal text.
-//  - **The same six kinds.** `text`, `richtext`, `image`, `link`, `select`,
-//    `boolean`. A seventh here would be a second editor drifting from the dock.
+//  - **The same kinds.** `text`, `richtext`, `image`, `link`, `select`,
+//    `boolean` and `icon` each get a control. A kind handled differently here
+//    would be a second editor drifting from the dock.
+//  - **`list` is the one kind this overlay does NOT offer**, and it says so by
+//    drawing no row and refusing the write, rather than by falling through to a
+//    text box that would flatten a client's cards into a string. Reordering
+//    cards needs a control a corner strip cannot hold; the dashboard dock is
+//    where that lives. An honest gap beats a control that saves the wrong
+//    shape.
 // ---------------------------------------------------------------------------
 
 import type { BlockDefinition, BlockField } from "../blocks/defineBlock";
@@ -65,7 +72,11 @@ function controlFor(field: BlockField): OverlayControl {
   switch (field.kind) {
     case "richtext":
       return { control: "multiline" };
+    // An icon is a choice over names the agency registered beside their own
+    // components. Same control, because it IS the same value: one string out of
+    // a fixed set.
     case "select":
+    case "icon":
       return { control: "choice", options: field.options ?? [] };
     case "boolean":
       return { control: "toggle" };
@@ -120,13 +131,19 @@ export function overlayRows(
   definition: BlockDefinition,
   props: Record<string, unknown> | undefined,
 ): OverlayRow[] {
-  return definition.fields.map((field) => ({
-    field,
-    label: field.label?.trim() || field.key,
-    locked: field.locked === true,
-    value: narrow(field, props?.[field.key]),
-    ...controlFor(field),
-  }));
+  return definition.fields
+    // A `list` gets no row. The overlay is a narrow strip in the corner of
+    // somebody else's design, and reordering cards needs more room and more
+    // controls than that. Drawn as a text box it would let a client flatten
+    // their own cards into a string, which is worse than not offering it.
+    .filter((field) => field.kind !== "list")
+    .map((field) => ({
+      field,
+      label: field.label?.trim() || field.key,
+      locked: field.locked === true,
+      value: narrow(field, props?.[field.key]),
+      ...controlFor(field),
+    }));
 }
 
 export type FieldCheck =
@@ -170,7 +187,12 @@ export function checkFieldValue(field: BlockField, raw: unknown): FieldCheck {
       return { ok: true, value: raw };
     }
 
-    case "select": {
+    // Same check for both: one string out of the agency's own declared list.
+    // Without the `icon` case here it would fall through to the text branch,
+    // which accepts ANY string - so a name their component cannot draw would be
+    // written into their file and refused hours later on the push.
+    case "select":
+    case "icon": {
       const options = field.options ?? [];
       if (typeof raw !== "string" || !options.includes(raw)) {
         return {
@@ -179,6 +201,16 @@ export function checkFieldValue(field: BlockField, raw: unknown): FieldCheck {
         };
       }
       return { ok: true, value: raw };
+    }
+
+    case "list": {
+      // Refused rather than written. This overlay has no control for an ordered
+      // set of sub-items, and the text branch below would turn the client's
+      // cards into one string.
+      return {
+        ok: false,
+        reason: `"${field.key}" is a list. Edit it in the Snabbsite dashboard, where the cards can be reordered.`,
+      };
     }
 
     case "link": {
