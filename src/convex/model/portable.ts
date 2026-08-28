@@ -85,6 +85,10 @@ const portableAssetKind = v.union(
   // Downloadable PDF (documents section, backlog 0817). Import sniffs the
   // %PDF- magic bytes; same per-asset byte ceiling as images.
   v.literal("document"),
+  // Self-hosted font file a captured page's `@font-face` pointed at (backlog
+  // 3067 follow-up: the exact copy rendered in a fallback serif without it).
+  // Import sniffs the wOFF/wOF2/ttf/otf magic bytes; width/height are 0.
+  v.literal("font"),
 );
 
 /** Canonical service data carried separately from section projections. The
