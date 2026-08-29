@@ -70,7 +70,12 @@ those words.
    page and we only hold the content. The copy lane is **measured**: we aim
    for 99.9% of pixels, and the copy is a still picture with no animations,
    because we never run a source's JavaScript on a visitor's page. Never write
-   "100%" about the copy.
+   "100%" about the copy. Say what the SDK lane costs before they build: their
+   own app serves the page, so bookings, the visitor assistant, visitor
+   statistics, our prepublish checks and our sharing images are theirs to
+   solve, while everything about the content keeps working, namely editing,
+   pages, publishing, restore points, AI edits, members, permissions and
+   forms.
 
 Three worked examples of the SDK lane are being built under backlog
 `P0-3075`. Until that lands there is no `examples/` directory to read, so
