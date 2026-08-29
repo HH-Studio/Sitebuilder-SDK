@@ -158,6 +158,13 @@ export function parseSiteMessage(data: unknown): SiteMessage | undefined {
         ...(typeof data.client === "string"
           ? { client: data.client.slice(0, 200) }
           : {}),
+        ...(Array.isArray(data.protocols)
+          ? {
+              protocols: data.protocols
+                .filter(speaksProtocolVersion)
+                .slice(0, VISUAL_EDITING_PROTOCOL_VERSIONS.length),
+            }
+          : {}),
       };
     case "edit-intent":
       if (!isFieldRef(data.target)) return undefined;

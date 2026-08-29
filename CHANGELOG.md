@@ -12,6 +12,24 @@ that validated against an older CLI still validates against a newer one.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Complete agency pages can declare up to 64 editable fields.** The SDK now
+  enforces the same 64-field block and 20-field list-item caps as Snabbsite, so
+  a schema cannot pass locally and then fail during push.
+
+- **Visual editing now has browser-safe package entries.** Client code can
+  import the editor bridge from `@snabbsajt/site-kit/visual-editing`, and block
+  declarations can import from `@snabbsajt/site-kit/blocks`. This keeps the
+  main entry's Node-only import tools out of browser bundles.
+- **Rendered sections keep their stable identity.** Published snapshots retain
+  `sourceSectionId`, local packages map `tmpId` to the same render field, and
+  `resolveBlockSection` returns it as `sectionId`. Click-to-edit and local file
+  writes can now target the section that produced the field.
+- **Visual-editing version offers survive validation.** The ready-message
+  parser keeps supported protocol numbers and drops unknown values, so the
+  documented version negotiation can select a shared version.
+
 ## [0.5.0] (2026-08-29)
 
 ### Added

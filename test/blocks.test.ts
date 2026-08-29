@@ -58,6 +58,7 @@ function siteWith(blockType: string, version = 1): RenderSite {
         showInNav: true,
         sections: [
           {
+            sourceSectionId: "pricing-home",
             type: "block",
             variant: "light",
             content: {
@@ -223,6 +224,15 @@ describe("lists, icons and declared style choices", () => {
     ).toThrow(/list with no fields/);
   });
 
+  it("mirrors the app's 64-field block limit", () => {
+    const fields = Array.from({ length: 65 }, (_, index) => ({
+      key: `field_${index}`,
+      kind: "text" as const,
+    }));
+    expect(() => defineBlock({ type: "full-page", label: "x", fields: fields.slice(0, 64) })).not.toThrow();
+    expect(() => defineBlock({ type: "too-wide", label: "x", fields })).toThrow(/limit is 64/);
+  });
+
   it("checks a list item's fields with the same rules as the top level", () => {
     // The whole point of one recursive checker. A looser second copy is how an
     // icon with no options reaches a client's editor one level down and draws
@@ -331,6 +341,7 @@ describe("serving a page SnabbSajt knows about", () => {
     if (!isBlockSection(section)) return;
     const resolved = resolveBlockSection(section, library);
     expect(resolved.definition).toBe(pricing);
+    expect(resolved.sectionId).toBe("pricing-home");
     expect(resolved.variant).toBe("light");
     // Passed through as data: the client's content is what the client wrote.
     expect(resolved.props).toEqual({ title: "Priser" });

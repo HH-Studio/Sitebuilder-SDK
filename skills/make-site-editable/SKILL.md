@@ -2,7 +2,7 @@
 name: make-site-editable
 description: Turn an agency's own Next.js app into a Snabbsite agency site - wrap components in defineBlock, declare the lists they fill in with defineCollection, move each page's composition into Snabbsite content, push, and walk the doctor contract. Use when the human says "make this site editable", "gor den har sajten redigerbar", "connect this repo to Snabbsite", "our client should be able to edit this", or asks to add a field to a block their client cannot change yet. The code keeps rendering the site; Snabbsite only holds the content.
 metadata:
-  skill-version: "1.2.0"
+  skill-version: "1.2.1"
   minimum-cli-version: "0.5.0"
   portable-format: "sajt-site@1"
 ---
@@ -85,6 +85,12 @@ so do not stop at "the block compiles".
    Name fields for what the CLIENT sees, never for the prop. `heading` is a
    field; `titleSlotOverride` is a prop leaking into somebody's Tuesday.
 
+   Import declarations from the browser-safe block entry:
+
+   ```ts
+   import { blockLibrary, defineBlock } from "@snabbsajt/site-kit/blocks";
+   ```
+
 3. **Map the component.** One line per block in `snabbsajt/components.ts`. Keep
    React out of `blocks.ts`: that file is data the CLI sends.
 
@@ -101,6 +107,22 @@ so do not stop at "the block compiles".
    Then open the site in Snabbsite and check the page renders in the editor's
    frame. A block that shows a placeholder outline is one whose schema landed
    and whose component did not.
+
+   The component that runs inside the frame imports its bridge from the
+   browser-safe entry. The main package entry also contains Node-only import
+   tools and must not be imported by a client component.
+
+   ```ts
+   import {
+     connectVisualEditing,
+     fieldRefFromEventTarget,
+     sajtField,
+   } from "@snabbsajt/site-kit/visual-editing";
+   ```
+
+   Mark fields with the `sectionId` returned by `resolveBlockSection`. Do not
+   invent one from the array index. A reorder changes an index; the section id
+   stays stable.
 
 6. **Walk the doctor contract.**
 
@@ -129,6 +151,10 @@ so do not stop at "the block compiles".
 - **Bump the version when a field changes shape.** A page keeps the version it
   was written against, so nothing goes blank while you work.
 - **Do not publish.** Publishing is the client's, or an explicit ask.
+- **Keep the site's motion engine alive after content edits.** If Webflow,
+  GSAP or another script owns inline styles, load it once after hydration and
+  update the existing text and image nodes. Do not restart the script for each
+  keystroke unless its own teardown contract is available.
 
 ## When the page is a LIST
 

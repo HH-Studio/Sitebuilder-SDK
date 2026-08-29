@@ -39,7 +39,13 @@ function published(overrides: Partial<PublishedSite["snapshot"]> = {}): Publishe
           order: 1,
           showInNav: true,
           sections: [
-            { type: "hero", variant: "centered", anchorId: "top", content: heroContent },
+            {
+              sourceSectionId: "hero-section",
+              type: "hero",
+              variant: "centered",
+              anchorId: "top",
+              content: heroContent,
+            },
           ],
         },
       ],
@@ -61,6 +67,7 @@ describe("renderModelFromPublished", () => {
       type: "hero",
       variant: "centered",
       anchorId: "top",
+      sourceSectionId: "hero-section",
       content: heroContent,
     });
   });
@@ -113,7 +120,7 @@ describe("renderModelFromPackage", () => {
     ],
     sections: [
       { pageTmpId: "p_home", type: "about", variant: "split", order: "a1", content: aboutContent },
-      { pageTmpId: "p_home", type: "hero", variant: "centered", order: "a0", content: heroContent },
+      { tmpId: "local-hero", pageTmpId: "p_home", type: "hero", variant: "centered", order: "a0", content: heroContent },
       { pageTmpId: "p_home", type: "faq", variant: "list", order: "a2", hidden: true, content: { type: "faq", items: [] } },
     ],
   } as unknown as PortableSiteV1;
@@ -124,6 +131,7 @@ describe("renderModelFromPackage", () => {
     expect(model.source).toBe("package");
     expect(model.pages.map((p) => p.slug)).toEqual([""]);
     expect(model.pages[0].sections.map((s) => s.type)).toEqual(["hero", "about"]);
+    expect(model.pages[0].sections[0].sourceSectionId).toBe("local-hero");
   });
 
   it("drops sections the author hid, the way a publish would", () => {

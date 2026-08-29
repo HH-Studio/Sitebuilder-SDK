@@ -23,6 +23,14 @@
     "./local-overlay": {
       "types": "./dist/lib/devlocal/localOverlay.d.ts",
       "import": "./dist/lib/devlocal/localOverlay.js"
+    },
+    "./visual-editing": {
+      "types": "./dist/lib/visual-editing/index.d.ts",
+      "import": "./dist/lib/visual-editing/index.js"
+    },
+    "./blocks": {
+      "types": "./dist/lib/blocks/index.d.ts",
+      "import": "./dist/lib/blocks/index.js"
     }
   },
   "dependencies": {

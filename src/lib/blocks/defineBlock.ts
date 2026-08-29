@@ -98,6 +98,11 @@ export type BlockDefinition = {
   variants?: readonly string[];
 };
 
+const BLOCK_FIELD_LIMITS = {
+  topLevel: 64,
+  listItem: 20,
+} as const;
+
 const ID_RE = /^[a-z][a-z0-9_-]*$/;
 
 export class BlockDefinitionError extends Error {
@@ -125,6 +130,12 @@ function checkFields(
 ): void {
   if (!Array.isArray(fields)) {
     throw new BlockDefinitionError(`Block "${type}" has no fields array${path ? ` at "${path}"` : ""}.`);
+  }
+  const maxFields = depth === 0 ? BLOCK_FIELD_LIMITS.topLevel : BLOCK_FIELD_LIMITS.listItem;
+  if (fields.length > maxFields) {
+    throw new BlockDefinitionError(
+      `Block "${type}" declares ${fields.length} fields${path ? ` at "${path}"` : ""}; the limit is ${maxFields}.`,
+    );
   }
   const seen = new Set<string>();
   for (const field of fields) {

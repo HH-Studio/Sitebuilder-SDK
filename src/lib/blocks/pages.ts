@@ -54,6 +54,8 @@ export function isBlockSection(section: RenderSection): section is BlockSection 
  *  what. `definition` is present when the library knows the block, and the
  *  caller decides what an unknown one means (usually: nothing). */
 export type ResolvedBlock = {
+  /** Stable id for `sajtField` and the local content writer. */
+  sectionId?: string;
   blockType: string;
   version: number;
   props: Record<string, unknown>;
@@ -67,6 +69,7 @@ export function resolveBlockSection(
 ): ResolvedBlock {
   const { blockType, version, props } = section.content;
   return {
+    sectionId: section.sourceSectionId,
     blockType,
     version,
     props: (props ?? {}) as Record<string, unknown>,

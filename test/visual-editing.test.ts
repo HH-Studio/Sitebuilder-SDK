@@ -146,6 +146,12 @@ describe("parsing untrusted messages", () => {
     expect((parsed as { client: string }).client).toHaveLength(200);
   });
 
+  it("keeps only supported versions from a ready offer", () => {
+    expect(
+      parseSiteMessage(envelope({ type: "ready", protocols: [99, VERSION, "1"] })),
+    ).toMatchObject({ type: "ready", protocols: [VERSION] });
+  });
+
   it("parses editor→site render and highlight, and rejects malformed ones", () => {
     expect(
       parseEditorMessage(envelope({ type: "render", snapshot: {}, pageSlug: "" })),

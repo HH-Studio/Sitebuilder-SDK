@@ -32,6 +32,14 @@
     "./local-overlay": {
       "types": "./dist/lib/devlocal/localOverlay.d.ts",
       "import": "./dist/lib/devlocal/localOverlay.js"
+    },
+    "./visual-editing": {
+      "types": "./dist/lib/visual-editing/index.d.ts",
+      "import": "./dist/lib/visual-editing/index.js"
+    },
+    "./blocks": {
+      "types": "./dist/lib/blocks/index.d.ts",
+      "import": "./dist/lib/blocks/index.js"
     }
   },
   "files": [
@@ -46,7 +54,7 @@
   ],
   "scripts": {
     "build": "bun run build:site-kit && bun run --cwd packages/cli build",
-    "build:site-kit": "tsup src/index.ts src/cli.ts src/lib/site-kit/localFiles.ts src/lib/devlocal/localContent.ts src/lib/devlocal/localOverlay.ts --format esm --dts --clean --external playwright && mkdir -p packages/site-kit/dist && cp -R dist/. packages/site-kit/dist/",
+    "build:site-kit": "tsup src/index.ts src/cli.ts src/lib/site-kit/localFiles.ts src/lib/devlocal/localContent.ts src/lib/devlocal/localOverlay.ts src/lib/visual-editing/index.ts src/lib/blocks/index.ts --format esm --dts --clean --external playwright && mkdir -p packages/site-kit/dist && cp -R dist/. packages/site-kit/dist/",
     "test": "vitest run && bun run --cwd packages/cli test",
     "typecheck": "tsc --noEmit && bun run --cwd packages/cli typecheck",
     "contract:check": "bun scripts/sync-contract.ts --check",

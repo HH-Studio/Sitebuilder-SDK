@@ -32,6 +32,8 @@ type PortableCollectionRow = NonNullable<PortableSiteV1["collectionRows"]>[numbe
 /** A section ready to render. Structurally compatible with the section shape
  *  a `defineSite` author writes, so one component switch serves both sources. */
 export type RenderSection = {
+  /** Stable section identity used by visual editing and local file writes. */
+  sourceSectionId?: string;
   type: string;
   variant: string;
   anchorId?: string;
@@ -127,6 +129,9 @@ export function renderModelFromPublished(
       // Snapshot sections are already ordered and already publish-filtered:
       // hidden sections never reach a snapshot.
       sections: page.sections.map((section) => ({
+        ...(section.sourceSectionId
+          ? { sourceSectionId: section.sourceSectionId }
+          : {}),
         type: section.type,
         variant: section.variant,
         ...(section.anchorId ? { anchorId: section.anchorId } : {}),
@@ -170,6 +175,7 @@ export function renderModelFromPackage(site: PortableSiteV1): RenderSite {
       order: page.order,
       showInNav: page.showInNav,
       sections: byOrderKey(sectionsByPage.get(page.tmpId) ?? []).map((section) => ({
+        sourceSectionId: section.tmpId,
         type: section.type,
         variant: section.variant,
         ...(section.anchorId ? { anchorId: section.anchorId } : {}),
