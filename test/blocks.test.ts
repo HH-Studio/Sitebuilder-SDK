@@ -229,7 +229,9 @@ describe("lists, icons and declared style choices", () => {
       key: `field_${index}`,
       kind: "text" as const,
     }));
-    expect(() => defineBlock({ type: "full-page", label: "x", fields: fields.slice(0, 64) })).not.toThrow();
+    expect(() =>
+      defineBlock({ type: "full-page", label: "x", fields: fields.slice(0, 64) }),
+    ).not.toThrow();
     expect(() => defineBlock({ type: "too-wide", label: "x", fields })).toThrow(/limit is 64/);
   });
 
