@@ -12,6 +12,38 @@ that validated against an older CLI still validates against a newer one.
 
 ## [Unreleased]
 
+## [0.5.0] (2026-08-29)
+
+### Added
+
+- **A client can reorder the cards on a page their agency built, and pick the
+  icon beside each one.** `defineBlock` gains two field kinds. `list` is an
+  ordered set of sub-items, each with its own fields, exactly one level deep,
+  with Move up and Move down beside every card in the Snabbsite editor. A list
+  marked `locked` does not move, and the server refuses the move as well as the
+  button. `icon` is a choice over icon NAMES the developer registers together
+  with their own components; we ship no icon set and never guess a glyph. A
+  declared style choice such as light or dark stays a plain `select`, which
+  already worked.
+- **The editor now draws every declared choice.** `select`, `icon`, a switch
+  for `boolean` and the ordinary image picker for `image` were all stored and
+  validated before, and none of them had a control, so a style choice a
+  developer declared could not be made. Fields render in the order the
+  developer wrote them, and a locked field is read-only rather than absent.
+
+### Fixed
+
+- **`convert-to-snabbsajt.md` is regenerated from the app's canonical copy.**
+  It had drifted: no "same look, or a new design?" gate, so it still told an
+  agent to do the thing the 2026-08-27 directive banned. A byte-for-byte test
+  now fails when the two copies differ.
+- **The developer story is one story.** The prompt, the developer page, this
+  package's quickstart, three agent skills and the MCP tool descriptions carry
+  the same five steps for a person and for an agent, and they now say what an
+  agency gives up on the SDK path: bookings, the visitor assistant, visitor
+  statistics, our prepublish checks and our sharing images.
+
+
 ### Fixed
 
 - **The localhost overlay has a browser-safe package entry.** Import
