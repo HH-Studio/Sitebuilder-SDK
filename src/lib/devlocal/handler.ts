@@ -56,18 +56,36 @@ function json(body: unknown, status: number): Response {
 /** True when the request was made by a page on this same app. A request with
  *  no `origin` header at all is allowed: that is curl, or a same-origin GET,
  *  neither of which is a cross-site write. A MISMATCHED origin is not. */
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
+function isLoopback(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]"
+  );
+}
+
+function safeLocalRequest(request: Request): boolean {
+  let requestUrl: URL;
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    requestUrl = new URL(request.url);
+  } catch {
+    return false;
+  }
+  if (!isLoopback(requestUrl.hostname)) return false;
+
+  const origin = request.headers.get("origin");
+  if (!origin) return request.method === "GET";
+  try {
+    return new URL(origin).origin === requestUrl.origin;
   } catch {
     return false;
   }
 }
 
 /**
- * Build the handler for `app/__snabbsite/content/route.ts`:
+ * Build the handler for `app/%5F%5Fsnabbsite/content/route.ts`.
+ * Next.js treats a folder beginning with `_` as private, so its escaped
+ * filesystem spelling is required to expose `/__snabbsite/content`:
  *
  * ```ts
  * import { createLocalContentHandler } from "@snabbsajt/site-kit/local-content";
@@ -86,7 +104,7 @@ export function createLocalContentHandler(options: LocalContentHandlerOptions) {
 
   return async function handle(request: Request): Promise<Response> {
     if (!enabled) return new Response(null, { status: 404 });
-    if (!sameOrigin(request)) return json({ reason: "Wrong origin." }, 403);
+    if (!safeLocalRequest(request)) return json({ reason: "Wrong origin." }, 403);
 
     if (request.method === "GET") {
       const sectionId = new URL(request.url).searchParams.get("sectionId") ?? "";

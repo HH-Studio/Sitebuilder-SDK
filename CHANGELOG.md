@@ -12,6 +12,18 @@ that validated against an older CLI still validates against a newer one.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The localhost overlay has a browser-safe package entry.** Import
+  `mountLocalOverlay`, `sajtField`, `defineBlock` and `blockLibrary` from
+  `@snabbsajt/site-kit/local-overlay`. The main entry also contains Node-only
+  import tools, so importing it in a Next.js client component made the bundler
+  try to resolve `fs`, `net` and `dns/promises` before the editor could start.
+  Its Next.js write route now documents the escaped folder
+  `app/%5F%5Fsnabbsite/content/route.ts`; an unescaped `app/__snabbsite` folder
+  is private to Next.js and returned 404. The writer also refuses non-loopback
+  hosts and every originless write, so a LAN address cannot edit local files.
+
 ### Changed
 
 - **The import contract defaults to an identical copy.** The first real user
