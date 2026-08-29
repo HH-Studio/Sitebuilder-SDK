@@ -92,7 +92,7 @@ snabbsajt admin pair --scopes site:read,content:write --json
 ```
 
 **Write to a live site from this agent:** the human adds
-`https://snabbsajt.com/api/mcp` as an MCP connector and approves the scopes in
+`https://snabbsite.com/api/mcp` as an MCP connector and approves the scopes in
 their Snabbsite account.
 
 All three need a human at a browser. Print the URL and code, then stop and

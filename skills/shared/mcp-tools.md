@@ -5,7 +5,7 @@ already exists. The CLI's `site` namespace builds packages offline and never
 touches a live site. Use this reference when a tool is denied, when you need to
 know which tool exists, or before asking the human to widen a connection.
 
-Endpoint: `https://snabbsajt.com/api/mcp` (Streamable HTTP, OAuth via the
+Endpoint: `https://snabbsite.com/api/mcp` (Streamable HTTP, OAuth via the
 human's Snabbsite login). The human creates connections in the app under
 AI-integrationer; you cannot mint one.
 
