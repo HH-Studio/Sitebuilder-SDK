@@ -111,17 +111,17 @@ export type {
   ResizeMessage,
   SiteMessage,
 } from "./lib/visual-editing/protocol";
-// Local editing: a small panel drawn in the agency's OWN app while it runs on
-// their machine, writing straight into their content files. Browser-safe; the
-// route handler that does the writing is the "./local-content" entry point.
-export { mountLocalOverlay, OVERLAY_STATE_KEY } from "./lib/devlocal/overlay";
+// Local editing runs in the agency's own app and writes straight into its
+// content files. The writing route is the "./local-content" entry point.
+export {
+  mountLocalOverlay,
+  OVERLAY_STATE_KEY,
+  sajtButton,
+} from "./lib/devlocal/inlineOverlay";
 export type {
   LocalOverlayHandle,
   MountLocalOverlayOptions,
-  OverlayDocument,
-  OverlayElement,
-  OverlayStorage,
-} from "./lib/devlocal/overlay";
+} from "./lib/devlocal/inlineOverlay";
 export {
   checkFieldValue,
   fieldFor,

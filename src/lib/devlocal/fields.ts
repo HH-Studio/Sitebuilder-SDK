@@ -67,6 +67,37 @@ export type OverlayRow = {
  *  hours later in a push. */
 export const OVERLAY_TEXT_CEILING = 2_000;
 export const OVERLAY_RICHTEXT_CEILING = 20_000;
+export const OVERLAY_IMAGE_DATA_URL_CEILING = 2_100_000;
+const OVERLAY_IMAGE_BYTES_CEILING = 1_500_000;
+
+function safeRasterDataUrl(assetId: string): boolean {
+  const match = /^data:image\/(avif|gif|jpeg|png|webp);base64,([a-z0-9+/=]+)$/i.exec(
+    assetId,
+  );
+  if (!match) return false;
+  try {
+    const bytes = atob(match[2]);
+    if (bytes.length > OVERLAY_IMAGE_BYTES_CEILING) return false;
+    const byte = (index: number): number => bytes.charCodeAt(index);
+    const type = match[1].toLowerCase();
+    if (type === "png") return bytes.startsWith("\x89PNG\r\n\x1a\n");
+    if (type === "gif") {
+      return bytes.startsWith("GIF87a") || bytes.startsWith("GIF89a");
+    }
+    if (type === "jpeg") {
+      return byte(0) === 0xff && byte(1) === 0xd8 && byte(2) === 0xff;
+    }
+    if (type === "webp") {
+      return bytes.startsWith("RIFF") && bytes.slice(8, 12) === "WEBP";
+    }
+    return (
+      bytes.slice(4, 8) === "ftyp" &&
+      /^(?:avif|avis)$/.test(bytes.slice(8, 12))
+    );
+  } catch {
+    return false;
+  }
+}
 
 function controlFor(field: BlockField): OverlayControl {
   switch (field.kind) {
@@ -240,7 +271,16 @@ export function checkFieldValue(field: BlockField, raw: unknown): FieldCheck {
       if (alt !== undefined && typeof alt !== "string") {
         return { ok: false, reason: `"${field.key}" has alt text that is not text.` };
       }
-      const value: ImageValue = { assetId: raw.assetId.trim() };
+      const assetId = raw.assetId.trim();
+      if (assetId.startsWith("data:")) {
+        if (!safeRasterDataUrl(assetId)) {
+          return { ok: false, reason: `"${field.key}" has an unsafe image type.` };
+        }
+        if (assetId.length > OVERLAY_IMAGE_DATA_URL_CEILING) {
+          return { ok: false, reason: `"${field.key}" image is too large.` };
+        }
+      }
+      const value: ImageValue = { assetId };
       if (typeof alt === "string" && alt.length > 0) value.alt = alt;
       return { ok: true, value };
     }

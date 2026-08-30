@@ -76,6 +76,13 @@ that validated against an older CLI still validates against a newer one.
 
 ### Changed
 
+- **Local editing now happens on the page.** Text and rich text use direct
+  editing in place, and Enter creates a new line. Buttons get one small control
+  for text, variant, link, remove and add. Image fields open a local raster file
+  picker with a 1.5 MB limit. The persistent corner panel and Edit button are
+  gone. Failed writes restore the previous value. Unsafe image bytes and
+  oversized requests are refused by the server too.
+
 - **The import contract defaults to an identical copy.** The first real user
   asked his agent to "import" his hand-built Next.js site. The agent followed
   `AGENT-QUICKSTART.md` and the `import-website` skill, which said

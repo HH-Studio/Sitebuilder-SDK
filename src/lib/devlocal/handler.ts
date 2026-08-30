@@ -28,6 +28,8 @@ import { isDevelopmentBuild } from "./devOnly";
 import { LOCAL_CONTENT_PATH } from "./route";
 import { applyContentEdit } from "./writeContent";
 
+const MAX_LOCAL_WRITE_BYTES = 2_200_000;
+
 export { LOCAL_CONTENT_PATH };
 
 export type LocalContentHandlerOptions = {
@@ -100,7 +102,7 @@ function safeLocalRequest(request: Request): boolean {
  * the panel can fill its rows. `POST` writes one field.
  */
 export function createLocalContentHandler(options: LocalContentHandlerOptions) {
-  const enabled = options.enabled ?? isDevelopmentBuild();
+  const enabled = isDevelopmentBuild() && options.enabled !== false;
 
   return async function handle(request: Request): Promise<Response> {
     if (!enabled) return new Response(null, { status: 404 });
@@ -118,9 +120,18 @@ export function createLocalContentHandler(options: LocalContentHandlerOptions) {
       return json({ reason: "Use GET or POST." }, 405);
     }
 
+    const declaredLength = Number(request.headers.get("content-length") ?? "0");
+    if (declaredLength > MAX_LOCAL_WRITE_BYTES) {
+      return json({ reason: "The local edit is too large." }, 413);
+    }
+
     let body: unknown;
     try {
-      body = await request.json();
+      const raw = await request.text();
+      if (raw.length > MAX_LOCAL_WRITE_BYTES) {
+        return json({ reason: "The local edit is too large." }, 413);
+      }
+      body = JSON.parse(raw);
     } catch {
       return json({ reason: "The request body is not JSON." }, 400);
     }
