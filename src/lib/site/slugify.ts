@@ -20,8 +20,8 @@ export function slugify(input: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Short address candidates (owner directive 2026-08-27). "Harrys Bygg i
-// Gävleborg" used to become harrys-bygg-i-gavleborg.snabbsite.website. The
+// Short address candidates (owner directive 2026-08-27). "Exempel Bygg i
+// Gävleborg" used to become exempel-bygg-i-gavleborg.snabbsite.website. The
 // address should be the shortest form of the name that is still the name:
 // drop a trailing place ("i Gävleborg"), a legal form ("AB"), and "& Co".
 // The server tries these first and falls back to the full slug on collision.
@@ -63,9 +63,9 @@ function stripNameNoise(name: string): string {
  * characters, never a reserved subdomain, and never the full `slugify(name)`,
  * which the caller appends last. A name with nothing to strip yields `[]`.
  *
- *   "Harrys Bygg i Gävleborg" -> ["harrys-bygg", "harrysbygg"]
+ *   "Exempel Bygg i Gävleborg" -> ["exempel-bygg", "exempelbygg"]
  *   "Annas Salong AB"         -> ["annas-salong", "annassalong"]
- *   "Harrys Bygg"             -> []
+ *   "Exempel Bygg"            -> []
  */
 export function shortNameCandidates(
   name: string,
