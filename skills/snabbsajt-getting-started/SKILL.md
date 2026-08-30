@@ -98,6 +98,21 @@ their Snabbsite account.
 All three need a human at a browser. Print the URL and code, then stop and
 wait — you cannot self-serve any of them, by design.
 
+**The human has no website yet?** That is fine and it is the interesting case.
+Pair anyway: the approval covers their whole company, the poll comes back with
+`websiteId: null`, and you create the first website yourself with `create_site`
+once you hold `workspace:write`. Ask for
+`site:read,content:write,workspace:write` when that is the job. The one client
+that still needs an existing website is `snabbsajt admin pair`, which writes a
+project file bound to one site.
+
+**The human has no ACCOUNT yet?** Send them to https://snabbsite.com to sign up,
+then start the pairing. Nothing creates an account for them, and nothing is
+minted before they confirm the code.
+
+`https://snabbsite.com/auth.md` is the machine-readable version of this section:
+the ceremony, both endpoints, and every scope with a one-line description.
+
 Full command surface, credential split, and per-command failure modes:
 [references/cli-commands.md](references/cli-commands.md).
 Scopes, tool catalogue, and the confirm handshake:
