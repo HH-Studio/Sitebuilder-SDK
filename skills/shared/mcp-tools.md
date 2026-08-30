@@ -9,6 +9,11 @@ Endpoint: `https://snabbsite.com/api/mcp` (Streamable HTTP, OAuth via the
 human's Snabbsite login). The human creates connections in the app under
 AI-integrationer; you cannot mint one.
 
+`https://snabbsite.com/auth.md` describes the whole connection story in one
+fetchable file: the code-confirmation ceremony, both endpoints, and every scope
+with a one-line description. A company with no website yet can be paired too,
+and the grant then covers the company so you can create its first site.
+
 ## Contents
 
 - [Scopes](#scopes) — what a connection is allowed to do
