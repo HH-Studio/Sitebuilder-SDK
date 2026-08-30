@@ -851,6 +851,7 @@ function buttonValues(
     "btn-bg": outline || underline ? "transparent" : soft ? `color-mix(in oklch, ${surface.primary}, transparent 86%)` : contrast ? surface.primaryFg : surface.primary,
     "btn-fg": outline || underline || soft ? surface.primary : contrast ? surface.primary : surface.primaryFg,
     "btn-border": outline ? surface.primary : "transparent",
+    "btn-shadow": elevated ? "var(--site-shadow-md)" : "none",
     // Solid darkens on hover; outline fills in; underline stays text-like.
     "btn-hover-bg": underline
       ? "transparent"
