@@ -17,7 +17,7 @@
     "maxTotalAssetBytes": 209715200
   },
   "format": "snabbsajt-site-kit-contract",
-  "hash": "sha256:3867d6d82e543199c5b88ce06ff7c5cd938e521837c174a7ce86cd366b2644c1",
+  "hash": "sha256:0119f89bbf6d3f057ece39603bd3d2321c334b0cff864b3b3e202ab0bfd907a1",
   "importReport": {
     "$id": "https://snabbsajt.com/contracts/import-report-v1.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -532,6 +532,10 @@
                       {
                         "type": "literal",
                         "value": "document"
+                      },
+                      {
+                        "type": "literal",
+                        "value": "font"
                       }
                     ]
                   },
@@ -5409,6 +5413,18 @@
                           },
                           {
                             "type": "literal",
+                            "value": "soft"
+                          },
+                          {
+                            "type": "literal",
+                            "value": "elevated"
+                          },
+                          {
+                            "type": "literal",
+                            "value": "contrast"
+                          },
+                          {
+                            "type": "literal",
                             "value": "pill"
                           }
                         ]
@@ -6613,6 +6629,10 @@
                         "value": [
                           {
                             "type": "literal",
+                            "value": "tight"
+                          },
+                          {
+                            "type": "literal",
                             "value": "compact"
                           },
                           {
@@ -6622,6 +6642,10 @@
                           {
                             "type": "literal",
                             "value": "spacious"
+                          },
+                          {
+                            "type": "literal",
+                            "value": "airy"
                           }
                         ]
                       },
@@ -6674,6 +6698,30 @@
                         ]
                       },
                       "optional": false
+                    },
+                    "formStyle": {
+                      "fieldType": {
+                        "type": "union",
+                        "value": [
+                          {
+                            "type": "literal",
+                            "value": "boxed"
+                          },
+                          {
+                            "type": "literal",
+                            "value": "filled"
+                          },
+                          {
+                            "type": "literal",
+                            "value": "linjerad"
+                          },
+                          {
+                            "type": "literal",
+                            "value": "soft"
+                          }
+                        ]
+                      },
+                      "optional": true
                     },
                     "headingAlign": {
                       "fieldType": {
@@ -8649,6 +8697,10 @@
                       "fieldType": {
                         "type": "union",
                         "value": [
+                          {
+                            "type": "literal",
+                            "value": "small"
+                          },
                           {
                             "type": "literal",
                             "value": "normal"

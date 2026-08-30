@@ -15,6 +15,8 @@ optional; every other field is required.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `assets` | `object[]` | Bundled image/logo/favicon/OG/video/document declarations. |
+| `blockSchemas?` | `object[]` |  |
+| `collectionRows?` | `object[]` |  |
 | `contentCollections?` | `object[]` | Blog or news collections. |
 | `exportedAt` | `string` | Package creation time. |
 | `folders` | `object[]` | Optional page hierarchy. Use `[]` when unused. |
@@ -40,10 +42,12 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `banner` | `bar`, `card`, `notice`, `split` |
 | `before-after` | `filtered`, `seam`, `side-by-side`, `slider`, `stacked`, `wide` |
 | `bento` | `bento`, `featured-work`, `list`, `mosaic`, `overlay-mosaic`, `picture-panel`, `portfolio`, `rail`, `uniform`, `work-index` |
+| `block` | `default` |
 | `booking` | `banner`, `button`, `inline` |
 | `certifications` | `badges`, `grid`, `ledger`, `list`, `rows` |
 | `comparison` | `cards`, `features`, `plans`, `table` |
 | `comparison-slider` | `comparison-bars`, `comparison-cards`, `default` |
+| `composed` | `default` |
 | `contact` | `form-info`, `form-methods`, `form-panel`, `info-cards`, `info-only`, `info-strip`, `links` |
 | `cta-band` | `boxed`, `centered`, `feature-tiles`, `glow-card`, `gradient`, `proof-row`, `showpiece`, `slab`, `split`, `ticker-band` |
 | `documents` | `grid`, `list`, `ruled` |
@@ -92,20 +96,54 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `durationSec?` | `number` |  |
 | `exportId` | `string` |  |
 | `height` | `number` |  |
-| `kind` | `"image" \| "logo" \| "favicon" \| "og" \| "video" \| "document"` |  |
+| `kind` | `"image" \| "logo" \| "favicon" \| "og" \| "video" \| "document" \| … (7 total)` |  |
 | `mimeType` | `string` |  |
 | `url` | `string` |  |
 | `width` | `number` |  |
+
+### `blockSchemas[]`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `fields` | `any` |  |
+| `label` | `string` |  |
+| `type` | `string` |  |
+| `variants?` | `string[]` |  |
+| `version` | `number` | Schema version. |
+
+### `collectionRows[]`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `collectionTmpId` | `string` |  |
+| `externalKey?` | `string` |  |
+| `hidden?` | `boolean` |  |
+| `order?` | `string` |  |
+| `slug` | `string` |  |
+| `title` | `string` |  |
+| `values` | `any` |  |
 
 ### `contentCollections[]`
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `kind` | `"blog" \| "news"` |  |
+| `externalKey?` | `string` |  |
+| `fields?` | `any` |  |
+| `kind` | `"blog" \| "news" \| "custom"` |  |
 | `name` | `string` |  |
 | `order` | `number` |  |
 | `slugPrefix` | `string` |  |
+| `source?` | `"app" \| "repo"` |  |
+| `template?` | `object` |  |
 | `tmpId` | `string` |  |
+
+### `contentCollections[].template`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `bindings?` | `Record<string, string>` |  |
+| `cardBlockType?` | `string` |  |
+| `detailBlockType?` | `string` |  |
 
 ### `folders[]`
 
@@ -188,6 +226,7 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `featuredImage?` | `object` |  |
 | `firstPublishedAt?` | `number` |  |
 | `folderTmpId?` | `string` |  |
+| `hasAiWrittenContent?` | `boolean` |  |
 | `job?` | `object` |  |
 | `navLabel?` | `string` |  |
 | `order` | `number` |  |
@@ -196,6 +235,7 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `seo?` | `object` |  |
 | `showInNav` | `boolean` |  |
 | `slug` | `string` |  |
+| `sourceTown?` | `string` |  |
 | `title` | `string` |  |
 | `tmpId` | `string` |  |
 
@@ -248,11 +288,14 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `anchorId?` | `string` |  |
+| `capturedShape?` | `string` |  |
 | `content` | `any` |  |
 | `externalKey?` | `string` |  |
 | `hidden?` | `boolean` |  |
 | `hiddenContentPaths?` | `string[]` |  |
 | `layout?` | `object` |  |
+| `locked?` | `boolean` |  |
+| `lockedContentPaths?` | `string[]` |  |
 | `motion?` | `"inherit" \| "none" \| "subtle" \| "full"` |  |
 | `options?` | `object` |  |
 | `order?` | `string` |  |
@@ -260,7 +303,7 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `styleOverrides?` | `Record<string, object>` |  |
 | `tmpId?` | `string` |  |
 | `tone?` | `"light" \| "clear" \| "dark" \| "brand"` |  |
-| `type` | `"hero" \| "services" \| "restaurant-menu" \| "service-detail" \| "about" \| "team" \| … (44 total)` |  |
+| `type` | `"hero" \| "services" \| "restaurant-menu" \| "service-detail" \| "about" \| "team" \| … (46 total)` |  |
 | `variant` | `string` |  |
 
 ### `sections[].layout`
@@ -333,7 +376,7 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `options?` | `string[]` |  |
 | `placeholder?` | `string` |  |
 | `required` | `boolean` |  |
-| `type` | `"text" \| "email" \| "phone" \| "textarea" \| "select"` |  |
+| `type` | `"text" \| "email" \| "phone" \| "address" \| "postalCode" \| "city" \| … (9 total)` |  |
 
 ### `site`
 
@@ -355,9 +398,11 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `newsIndex?` | `object` |  |
 | `ogImageAssetId?` | `string` |  |
 | `provenance?` | `object` |  |
+| `serviceAreas?` | `string[]` |  |
 | `socials?` | `object` |  |
 | `theme` | `object` |  |
 | `tracking?` | `object` |  |
+| `trustMarks?` | `object[]` |  |
 | `vertical` | `"dentist" \| "clinic" \| "salon" \| "cleaning" \| "restaurant" \| "fitness" \| … (17 total)` |  |
 
 ### `site.bookingConfig`
@@ -445,15 +490,16 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `appearance?` | `"light" \| "dark" \| "system"` |  |
-| `buttonStyle` | `"solid" \| "outline" \| "underline" \| "pill"` |  |
+| `buttonStyle` | `"solid" \| "outline" \| "underline" \| "soft" \| "elevated" \| "contrast" \| … (7 total)` |  |
 | `customBrandHex?` | `string` |  |
 | `customFonts?` | `object` |  |
 | `customLayout?` | `object` |  |
 | `customMotion?` | `object` |  |
 | `customPalette?` | `object` |  |
 | `customType?` | `object` |  |
-| `density` | `"compact" \| "comfortable" \| "spacious"` |  |
+| `density` | `"tight" \| "compact" \| "comfortable" \| "spacious" \| "airy"` |  |
 | `fontPair` | `"modern" \| "classic" \| "friendly" \| "premium" \| "editorial" \| "grotesk" \| … (10 total)` |  |
+| `formStyle?` | `"boxed" \| "filled" \| "linjerad" \| "soft"` |  |
 | `headingAlign?` | `"start" \| "center"` |  |
 | `headingCase?` | `"none" \| "uppercase"` |  |
 | `motion?` | `"none" \| "subtle" \| "full"` |  |
@@ -463,7 +509,7 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `palette` | `"slate" \| "ocean" \| "forest" \| "clay" \| "sand" \| "mono" \| … (14 total)` |  |
 | `radius` | `"sharp" \| "soft" \| "round"` |  |
 | `slotPresets?` | `Record<string, object>` |  |
-| `typeScale?` | `"normal" \| "large"` |  |
+| `typeScale?` | `"small" \| "normal" \| "large"` |  |
 
 ### `site.tracking`
 
@@ -475,6 +521,13 @@ declares - an unknown variant is rejected server-side, not silently ignored.
 | `hubspot?` | `string` |  |
 | `linkedin?` | `string` |  |
 | `metaPixel?` | `string` |  |
+
+### `site.trustMarks[]`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `key` | `"insured" \| "collective_agreement" \| "id_checked" \| "guarantee"` |  |
+| `note?` | `string` |  |
 
 ## A complete minimal package
 
