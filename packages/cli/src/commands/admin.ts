@@ -126,11 +126,21 @@ async function runPair(
 
   const approved = await waitForScopedApproval(start, { ...deps, apiUrl });
 
+  // A company-wide approval carries no site, and this project file is defined by
+  // one: `.snabbsajt-admin.json` records the site every later command acts on.
+  // Say that, rather than writing "undefined" into the file and failing later.
+  if (!approved.websiteId) {
+    throw new ConnectError(
+      "The owner approved a connection for the whole company, which has no website yet. Create a website first, then run `snabbsajt admin pair` again.",
+    );
+  }
+  const siteId = approved.websiteId;
+
   const appUrl = appUrlFromVerification(start.verificationUrl, deps);
   writeAdminConfig(cwd, {
     appUrl,
     apiUrl: apiUrl || process.env.SNABBSAJT_API_URL || DEFAULT_API_URL,
-    siteId: approved.websiteId,
+    siteId,
     scopes: approved.scopes,
     ...(approved.siteName ? { siteName: approved.siteName } : {}),
     ...(approved.slug ? { slug: approved.slug } : {}),
@@ -143,7 +153,7 @@ async function runPair(
       ok: true,
       command: "admin pair",
       stage: "paired",
-      siteId: approved.websiteId,
+      siteId,
       siteName: approved.siteName,
       appUrl,
       // The GRANTED set — the owner may have unticked something.
@@ -158,7 +168,7 @@ async function runPair(
     });
   } else {
     output.stdout("");
-    output.stdout(`  Paired with ${approved.siteName ?? approved.websiteId}.`);
+    output.stdout(`  Paired with ${approved.siteName ?? siteId}.`);
     output.stdout(`  Granted   ${approved.scopes.join(", ")}`);
     if (!coversRequest(requested, approved.scopes)) {
       output.stdout("  (narrower than requested — the owner unticked something)");

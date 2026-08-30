@@ -43,7 +43,10 @@ export type ScopedPairStart = {
 export type ScopedPairApproved = {
   status: "approved";
   token: string;
-  websiteId: string;
+  /** Null when the owner approved a company that has no website yet. The grant
+   *  covers the whole company, and the first site is the thing the connected
+   *  agent is expected to create. */
+  websiteId: string | null;
   /** The scopes the owner actually granted — possibly narrower than requested. */
   scopes: string[];
   siteName: string | null;
@@ -174,7 +177,10 @@ export async function waitForScopedApproval(
       case "approved":
         // "Approved" without a token is not an approval. Accepting it writes the
         // literal string "undefined" into .env.local and reports success.
-        if (!result.token || !result.websiteId) {
+        //
+        // A missing `websiteId` is NOT that case: an empty company has no site
+        // to name, and the token is company-wide on purpose.
+        if (!result.token) {
           throw new ConnectError(
             "The server approved the pairing but returned no token. Run `snabbsajt admin pair` again.",
           );

@@ -154,6 +154,23 @@ describe("snabbsajt admin pair", () => {
     );
   });
 
+  // An owner with no website yet can now approve a pairing for the whole
+  // company, which is right for an MCP client and wrong for this project file:
+  // `.snabbsajt-admin.json` is defined by the one site later commands act on.
+  it("refuses a company-wide approval instead of writing an undefined site", async () => {
+    const { err, output } = collectOutput();
+    const fetchImpl = pairingFetch({ ...PAIR_APPROVED, websiteId: null, siteName: null, slug: null });
+    const code = await runAdminCommand(["pair"], output, {
+      fetch: fetchImpl as unknown as typeof globalThis.fetch,
+      sleep: async () => {},
+      apiUrl: "https://example.convex.site",
+    });
+
+    expect(code).toBe(1);
+    expect(err.join("\n")).toMatch(/whole company/i);
+    expect(readAdminConfig(dir)).toBeUndefined();
+  });
+
   it("asks for site:read,content:write when --scopes is omitted", async () => {
     const fetchImpl = pairingFetch();
     const { output } = collectOutput();
