@@ -44,11 +44,24 @@ export const FONT_PAIR_KEYS = [
   "timeless", // warm serif throughout
 ] as const;
 
-export const DENSITY_KEYS = ["compact", "comfortable", "spacious"] as const;
+export const DENSITY_KEYS = [
+  "tight",
+  "compact",
+  "comfortable",
+  "spacious",
+  "airy",
+] as const;
 export const RADIUS_KEYS = ["sharp", "soft", "round"] as const;
 /** Owner-facing button fill styles. `pill` used to mean "solid + full round";
  *  radius now owns roundness, so the third option is underline instead. */
-export const BUTTON_STYLE_KEYS = ["solid", "outline", "underline"] as const;
+export const BUTTON_STYLE_KEYS = [
+  "solid",
+  "outline",
+  "underline",
+  "soft",
+  "elevated",
+  "contrast",
+] as const;
 /** Still stored on older sites; treated as `solid` at render (see normalizeButtonStyle). */
 export const LEGACY_BUTTON_STYLE_KEYS = ["pill"] as const;
 
@@ -62,7 +75,8 @@ export const APPEARANCE_KEYS = ["light", "dark", "system"] as const;
 // together and stay in proportion - never a per-element font-size override.
 // Optional + defaults to "normal" (scale 1) so every existing site keeps its
 // exact current look with no migration.
-export const TYPE_SCALE_KEYS = ["normal", "large"] as const;
+export const TYPE_SCALE_KEYS = ["small", "normal", "large"] as const;
+export const FORM_STYLE_KEYS = ["boxed", "filled", "linjerad", "soft"] as const;
 
 // Casing of section headings. "none" is the letters as typed; "uppercase" is
 // the tracked-caps look a lot of studio and editorial brands set in CSS. It is
@@ -366,6 +380,7 @@ export const themeTokens = v.object({
   ),
   appearance: v.optional(v.union(...APPEARANCE_KEYS.map((k) => v.literal(k)))),
   typeScale: v.optional(v.union(...TYPE_SCALE_KEYS.map((k) => v.literal(k)))),
+  formStyle: v.optional(v.union(...FORM_STYLE_KEYS.map((k) => v.literal(k)))),
   motion: v.optional(v.union(...MOTION_KEYS.map((k) => v.literal(k)))),
   navLayout: v.optional(v.union(...NAV_LAYOUT_KEYS.map((k) => v.literal(k)))),
   navOverlay: v.optional(v.union(...NAV_OVERLAY_KEYS.map((k) => v.literal(k)))),
@@ -427,6 +442,7 @@ export type HeadingCase = (typeof HEADING_CASE_KEYS)[number];
 export type HeadingAlign = (typeof HEADING_ALIGN_KEYS)[number];
 export type NavLayout = (typeof NAV_LAYOUT_KEYS)[number];
 export type ButtonStyle = (typeof BUTTON_STYLE_KEYS)[number];
+export type FormStyle = (typeof FORM_STYLE_KEYS)[number];
 
 /** Map legacy `pill` (solid + full round) onto today's solid fill — radius is
  *  chosen separately now. Pure. */

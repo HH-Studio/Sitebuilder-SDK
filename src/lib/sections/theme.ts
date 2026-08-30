@@ -140,7 +140,7 @@ const CATEGORY_TYPE: Record<
   }
 > = {
   grotesk: {
-    leadingHeading: "1.12",
+    leadingHeading: "1.08",
     leadingDisplay: "1.05",
     trackingDisplay: "-0.025em",
     weightHeading: "600",
@@ -160,7 +160,7 @@ const CATEGORY_TYPE: Record<
   // eyebrow, and the biggest ramp of the five. Gyms and trades with attitude,
   // not a second "modern".
   groteskBold: {
-    leadingHeading: "1.08",
+    leadingHeading: "1.04",
     leadingDisplay: "1.02",
     trackingDisplay: "-0.035em",
     weightHeading: "700",
@@ -177,7 +177,7 @@ const CATEGORY_TYPE: Record<
     },
   },
   serif: {
-    leadingHeading: "1.16",
+    leadingHeading: "1.12",
     leadingDisplay: "1.08",
     trackingDisplay: "-0.02em",
     weightHeading: "400",
@@ -196,7 +196,7 @@ const CATEGORY_TYPE: Record<
   // Display serif: larger than a grotesk at the same role, with tight
   // editorial leading and a sentence-case kicker.
   displaySerif: {
-    leadingHeading: "1.1",
+    leadingHeading: "1.06",
     leadingDisplay: "1.04",
     trackingDisplay: "-0.012em",
     weightHeading: "600",
@@ -213,7 +213,7 @@ const CATEGORY_TYPE: Record<
     },
   },
   humanist: {
-    leadingHeading: "1.2",
+    leadingHeading: "1.16",
     leadingDisplay: "1.12",
     trackingDisplay: "-0.01em",
     weightHeading: "500",
@@ -238,9 +238,11 @@ const RADIUS_REM: Record<ThemeTokens["radius"], string> = {
 };
 
 const DENSITY_SCALE: Record<ThemeTokens["density"], string> = {
+  tight: "0.72",
   compact: "0.85",
   comfortable: "1",
   spacious: "1.18",
+  airy: "1.32",
 };
 
 /** Fluid typographic scale, exposed as CSS vars consumed by the shared Heading /
@@ -267,7 +269,7 @@ const DENSITY_SCALE: Record<ThemeTokens["density"], string> = {
 const TYPE_SCALE_VALUE: Record<
   NonNullable<ThemeTokens["typeScale"]>,
   string
-> = { normal: "1", large: "1.125" };
+> = { small: "0.92", normal: "1", large: "1.125" };
 
 // ---------------------------------------------------------------------------
 // Measured design overrides (`theme.customType` / `customLayout`).
@@ -350,7 +352,7 @@ function roleDefaults(
   const heading = {
     leading: c.leadingHeading,
     weight: c.weightHeading,
-    tracking: "-0.01em",
+    tracking: "-0.02em",
     transform: headingTransform,
     family: headingFamily,
   };
@@ -401,7 +403,7 @@ function roleDefaults(
     quote: {
       leading: c.leadingHeading,
       weight: "500",
-      tracking: "-0.01em",
+      tracking: "-0.02em",
       transform: "none",
       family: headingFamily,
     },
@@ -459,7 +461,7 @@ function roleVars(
  *  (`theme.customLayout`), so this changes generated sites, not imported ones. */
 function layoutVars(custom: ThemeTokens["customLayout"]): Record<string, string> {
   const out: Record<string, string> = {
-    "--site-py-base": safeLength(custom?.sectionPy) ?? "4.5rem",
+    "--site-py-base": safeLength(custom?.sectionPy) ?? "3.5rem",
     "--site-w-narrow": safeLength(custom?.containerNarrow) ?? "48rem",
     "--site-w-default": safeLength(custom?.containerDefault) ?? "90rem",
     "--site-w-wide": safeLength(custom?.containerWide) ?? "100rem",
@@ -649,8 +651,8 @@ function typeScaleVars(
     "--site-leading-snug": "1.4",
     // Body leading stays responsive (mobile 1.4 -> 1.6 at 768px). A measured
     // body line-height pins both, because the source page had one value.
-    "--site-leading-body-mobile": safeRatio(custom?.body?.lineHeight) ?? "1.4",
-    "--site-leading-body": safeRatio(custom?.body?.lineHeight) ?? "1.6",
+    "--site-leading-body-mobile": safeRatio(custom?.body?.lineHeight) ?? "1.35",
+    "--site-leading-body": safeRatio(custom?.body?.lineHeight) ?? "1.45",
     // weights
     "--site-weight-heading": c.weightHeading,
     "--site-weight-medium": "500",
@@ -842,22 +844,44 @@ function buttonValues(
   const style = normalizeButtonStyle(buttonStyle);
   const outline = style === "outline";
   const underline = style === "underline";
+  const soft = style === "soft";
+  const elevated = style === "elevated";
+  const contrast = style === "contrast";
   return {
-    "btn-bg": outline || underline ? "transparent" : surface.primary,
-    "btn-fg": outline || underline ? surface.primary : surface.primaryFg,
+    "btn-bg": outline || underline ? "transparent" : soft ? `color-mix(in oklch, ${surface.primary}, transparent 86%)` : contrast ? surface.primaryFg : surface.primary,
+    "btn-fg": outline || underline || soft ? surface.primary : contrast ? surface.primary : surface.primaryFg,
     "btn-border": outline ? surface.primary : "transparent",
     // Solid darkens on hover; outline fills in; underline stays text-like.
     "btn-hover-bg": underline
       ? "transparent"
       : outline
         ? surface.primary
-        : `color-mix(in oklch, ${surface.primary}, black 10%)`,
-    "btn-hover-fg": underline
+        : soft
+          ? `color-mix(in oklch, ${surface.primary}, transparent 76%)`
+          : contrast
+            ? `color-mix(in oklch, ${surface.primaryFg}, ${surface.primary} 10%)`
+            : `color-mix(in oklch, ${surface.primary}, black 10%)`,
+    "btn-hover-fg": underline || soft
       ? surface.primary
-      : surface.primaryFg,
+      : contrast
+        ? surface.primary
+        : surface.primaryFg,
     "btn-decoration": underline ? "underline" : "none",
-    "btn-hover-shadow": underline ? "none" : "var(--site-shadow-xs)",
+    "btn-hover-shadow": underline ? "none" : elevated ? "var(--site-shadow-md)" : "var(--site-shadow-xs)",
   };
+}
+
+function fieldValues(style: ThemeTokens["formStyle"]): Record<string, string> {
+  switch (style ?? "boxed") {
+    case "filled":
+      return { "--site-field-bg": "var(--site-muted)", "--site-field-border": "transparent", "--site-field-radius": "calc(var(--site-radius) * 0.7)", "--site-field-border-width": "1px" };
+    case "linjerad":
+      return { "--site-field-bg": "transparent", "--site-field-border": "var(--site-border)", "--site-field-radius": "0", "--site-field-border-width": "0 0 1px" };
+    case "soft":
+      return { "--site-field-bg": "color-mix(in oklch, var(--site-muted), transparent 35%)", "--site-field-border": "color-mix(in oklch, var(--site-border), transparent 35%)", "--site-field-radius": "calc(var(--site-radius) * 1.15)", "--site-field-border-width": "1px" };
+    default:
+      return { "--site-field-bg": "var(--site-card)", "--site-field-border": "var(--site-border)", "--site-field-radius": "calc(var(--site-radius) * 0.7)", "--site-field-border-width": "1px" };
+  }
 }
 
 /** Surface vars for content drawn ON a scrimmed photo (the hero overlay
@@ -1098,6 +1122,7 @@ export function rootChromeVars(
       tokens.headingAlign === "center" ? "center" : "stretch",
     "--site-radius": RADIUS_REM[tokens.radius],
     "--site-density": DENSITY_SCALE[tokens.density],
+    ...fieldValues(tokens.formStyle),
     // Radius owns roundness now — legacy `pill` no longer forces 9999px.
     "--site-btn-radius": "var(--site-radius)",
     // Primary-button COLOUR tokens live in the scoped scheme stylesheet
