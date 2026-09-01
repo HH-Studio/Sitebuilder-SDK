@@ -11,8 +11,9 @@ SnabbSajt's typed sections, validate it locally, and pack it as a safe bundle.
 
 | | Version |
 | --- | --- |
-| **Published on npm** (what `npm install` gives you) | **`0.4.0`** |
-| This source tree | `0.4.0` |
+| **Site Kit published on npm** | **`0.5.0`** |
+| **CLI published on npm** | **`0.4.1`** |
+| This source tree | `0.5.0` |
 
 The package format, validator, HTML/WordPress converters, CLI, skills, and
 bundle format match the production SnabbSajt importer.
@@ -35,9 +36,8 @@ from Site Kit:
 - **No hand-written order keys.** Section `order` is optional — omit it and the
   importer orders by array position.
 
-`0.4.0` **is published** (2026-08-13) and is what `npm install` gives you today.
-It adds the `--json` error fix plus the multilingual contract, terminal site
-linking, scoped admin commands and the update flow.
+Site Kit `0.5.0` and CLI `0.4.1` are published. The current source tree is
+`0.5.0`.
 
 Two things about that release are worth knowing if you hit them: for about
 seven hours on release day `@snabbsajt/cli@0.4.0` was live against a still-`0.3.0`
@@ -85,17 +85,17 @@ creates a new unpublished draft. It never overwrites or publishes a site.
 
 No API key is needed. Every command runs locally.
 
-**Want the site to look exactly like it does today? Do not build a package.**
-A package of typed sections is a redesign on SnabbSajt blocks: it keeps your
-words, images and facts and replaces the layout, fonts and colours. For an
-identical copy there are two lanes. Your own Next.js/React repo that you keep
-deploying goes through `snabbsajt init --agency` and `defineBlock` (the
-`make-site-editable` skill); your code still draws the site. A live URL,
-static export or HTML zip goes into the app itself: onboarding "Move your
-website" ("Flytta din hemsida"), or Settings > Backup & move, paste the
-address or drop the zip. The app captures the rendered page and keeps text,
-images and links editable. The package workflow below is for a new design, and
-the agent must say so before it starts.
+**Want to keep the current look? Do not build a package.** A package of typed
+sections is a redesign on SnabbSajt blocks. It keeps your words, images and
+facts and replaces the layout, fonts and colours. Your own Next.js or React repo
+can use `snabbsajt init --agency` and `defineBlock` (the `make-site-editable`
+skill). Your code keeps drawing the site, and only exposed fields are editable.
+A live URL, static export or HTML zip goes into the app itself: onboarding
+"Move your website" ("Flytta din hemsida"), or Settings > Backup & move. Paste
+the address or drop the zip. The app tries to capture the rendered page. Text,
+images and links are editable when capture succeeds, while internal layout
+stays fixed. A typed rebuild is the fallback. The package workflow below is for
+a new design, and the agent must say so before it starts.
 
 To convert rendered HTML into a redesign on SnabbSajt blocks:
 

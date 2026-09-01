@@ -92,7 +92,7 @@ that validated against an older CLI still validates against a newer one.
   `2.0.0` and opens with a hard gate, Step 0: "Should the site look exactly
   like it does today?", default yes. Same look and their own Next.js/React repo
   routes to `make-site-editable`; same look and a live URL, static export or
-  HTML zip routes to the app's exact copy ("Move your website" / "Flytta din
+  HTML zip routes to the app's visual capture ("Move your website" / "Flytta din
   hemsida", or Settings, Backup & move), where the human pastes the address
   and the agent builds nothing. The package workflow runs only when the human
   asks for a new design on SnabbSajt blocks, and the agent must say "rebuilt
@@ -103,7 +103,7 @@ that validated against an older CLI still validates against a newer one.
   routes, `AGENT-QUICKSTART.md`, `README.md`, `docs/quickstart.md` and
   `prompts/convert-to-snabbsajt.md` say the same thing, and
   `snabbsajt site import html` prints one closing line saying the package will
-  not look identical and where the exact copy lives.
+  not look identical and where the visual capture lives.
 
 ## [0.4.1] (2026-08-26)
 

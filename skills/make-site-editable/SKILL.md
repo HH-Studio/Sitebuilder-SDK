@@ -18,25 +18,24 @@ deployment anywhere.
 
 ## The one story this skill is half of
 
-There are two ways into Snabbsite, and both keep the look. This skill is the
-first one:
+There are two ways in when keeping the look matters. This skill is the first:
 
-> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
-> because your own code still draws the page.**
-> **Already have a website? Give us the zip or the address and you get an
-> exact copy you can edit.**
+> **Building in Next.js? Use the SDK. Their own code keeps drawing the page,
+> and the owner edits only the fields they expose.**
+> **Already have a website? Use the zip or address for best-effort visual
+> capture. Captured text, images and links are editable. Internal layout stays
+> fixed, and a typed rebuild is the fallback.**
 
 If the human does NOT write this site themselves, they are on the second lane:
 hand them the address and the click path (onboarding, "Move your website" /
 "Flytta din hemsida", or Settings, Backup & move) and stop. The
 `import-website` skill carries that routing in full.
 
-**Why this lane is 100%, and why the other one is not.** Here the identity is
-by definition: their components render every pixel exactly as they do on their
-own deployment, and Snabbsite only holds the words and the pictures. The copy
-lane is measured instead, aiming at 99.9% of the pixels, and it is a still
-picture with no animations, because Snabbsite never runs a source's JavaScript
-in a visitor's browser. Never write "100%" about the copy lane.
+**What stays the same here.** Their components and deployment keep rendering
+the design. Snabbsite holds the words and pictures they expose. The other lane
+tries visual capture with no percentage guarantee. It can recreate common
+motion with Snabbsite code, but source scripts and custom interactions do not
+move into the imported website.
 
 The five steps below are the same five the human reads on the marketing page
 and in the SDK quickstart: pick the path, connect it, say what the owner may

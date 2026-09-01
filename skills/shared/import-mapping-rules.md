@@ -13,11 +13,11 @@ colours with SnabbSajt's. So:
 - Build a package only after the human asked for a new design on SnabbSajt
   blocks. When the human wants the same look, stop and route: their own
   Next.js/React repo goes to the `make-site-editable` skill; a live URL, static
-  export or HTML zip goes to the app's exact copy (onboarding "Move your
+  export or HTML zip goes to the app's best-effort visual capture (onboarding "Move your
   website" / "Flytta din hemsida", or Settings, Backup & move / Inställningar,
   Säkerhetskopia och flytt). See Step 0 of the `import-website` skill.
 - Set `provenance.sourceUrl` in `site.json` whenever the source is reachable
-  at a URL. The app reads it to offer the exact copy instead of the rebuild.
+  at a URL. The app reads it to offer visual capture instead of the rebuild.
   A package built from a live address without it is incomplete.
 - Pick a registered section type only when the source region truly is that
   kind of content. Force nothing into the nearest shape; skip it with a

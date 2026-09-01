@@ -1,8 +1,8 @@
 ---
 name: import-website
-description: Bring an existing website into Snabbsite, and route to the lane that keeps its look. Two lanes do: building in Next.js means the SDK (make-site-editable), push once, 100% identical because the human's own code still draws the page; already having a website means handing over the zip or the address for an exact copy they can edit. The package workflow in this skill is the third lane, a public URL, rendered HTML, a static zip, a Next.js export or a WordPress WXR converted into typed Snabbsite sections, and it is a redesign on Snabbsite blocks that runs only when the human asks for a new design. Use when the human says "import this website", "importera den har hemsidan", "migrate <customer> to Snabbsite", "flytta kundens sajt", "convert this WordPress site", or hands over a URL, zip, or repo that should become a Snabbsite site. build-snabbsajt-site starts from a brief instead.
+description: Bring an existing website into Snabbsite and choose the right lane. A Next.js app can keep its own renderer and expose selected content fields. A URL or zip can use best-effort visual capture with editable text, images and links, fixed captured layout, and a typed rebuild fallback. The package workflow converts a public URL, rendered HTML, static zip, Next.js export or WordPress WXR into typed Snabbsite sections. It is a redesign and runs only when the human asks for a new design. Use when the human asks to import or migrate a website, or provides a URL, zip or repo. build-snabbsajt-site starts from a brief instead.
 metadata:
-  skill-version: "3.0.0"
+  skill-version: "3.1.0"
   minimum-cli-version: "0.1.0"
   portable-format: "sajt-site@1"
   report-contract: "snabbsajt-import-report@1"
@@ -12,14 +12,13 @@ metadata:
 
 ## Step 0: which lane? (hard gate)
 
-There are two ways into Snabbsite, and both keep the look. This is the whole
-story, and it is the same story the app, the marketing page, the SDK
-quickstart and the MCP tool descriptions tell:
+There are two ways in when keeping the look matters:
 
-> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
-> because your own code still draws the page.**
-> **Already have a website? Give us the zip or the address and you get an
-> exact copy you can edit.**
+> **Building in Next.js? Use the SDK. Their code keeps drawing the page, and
+> the owner edits only the fields they expose.**
+> **Already have a website? Give us the zip or address. We try to capture the
+> rendered look. Captured text, images and links are editable, but internal
+> layout stays fixed. A typed rebuild is the fallback.**
 
 The package workflow in this skill is neither of those. It is a redesign on
 Snabbsite blocks, and it runs only when the human asks for a new design in
@@ -28,12 +27,13 @@ those words.
 ### The five steps, for the human
 
 1. **Pick the path.** They write the website in Next.js and keep deploying it:
-   the SDK. The website already exists as an address or a zip: the copy.
+   the SDK. The website already exists as an address or a zip: visual capture.
 2. **Connect it.** SDK: `npx @snabbsajt/cli@latest init --agency` in the repo.
-   Copy: sign in, open "Move your website" ("Flytta din hemsida"), and paste
-   the address or drop the zip.
+   Capture: sign in, open "Move your website" ("Flytta din hemsida"), and
+   paste the address or drop the zip. The preview reports the result.
 3. **Say what the owner may change.** SDK: wrap each section in `defineBlock`,
-   one field per thing an owner would ring about. Copy: nothing to mark.
+   one field per thing an owner would ring about. Capture: text, image and link
+   slots are editable. Internal captured layout stays fixed.
 4. **Hand it over.** SDK: `npx @snabbsajt/cli@latest push . --site <id>`.
    Copy: press the one button on the preview screen. Both make an unpublished
    draft.
@@ -58,17 +58,15 @@ those words.
    rendered page in its own browser, so a CLI cannot do this and there is
    nothing for you to build.
 3. SDK lane: name each field for what the CLIENT sees, never for the prop.
-   Copy lane: nothing to mark, because every text, image and link is already
-   editable.
+   Visual capture lane: text, image and link slots are editable. Internal
+   captured layout stays fixed.
 4. SDK lane: `--dry-run` first, show the merge report, push for real only
    after the human approves it. Copy lane: the human presses the button.
-5. Report the number honestly, and do not soften this line. The SDK lane is
-   **100% by definition**, because the human's own code draws the page and
-   Snabbsite only holds the content. The copy lane is **measured**: the goal is
-   99.9% of the pixels, runs on real customer sites have landed between roughly
-   98.5% and 99.5%, and the copy is a still picture with no animations, because
-   Snabbsite never runs a source's JavaScript in a visitor's browser. Never
-   write "100%" about the copy.
+5. Report the result honestly. The SDK keeps the existing renderer, but only
+   exposed fields are editable. Visual capture has no percentage guarantee.
+   Common fades, scroll reveals and smooth scrolling can be recreated with
+   Snabbsite code. Source JavaScript and custom interactions do not move into
+   the imported or published website.
 
 Three worked SDK-lane examples with a score per section are being built under
 backlog `P0-3075`. Until that lands there is no `examples/` directory, so do
@@ -109,7 +107,7 @@ statuses, and per-command failure modes are in
 - Preserve and cite every loss, replacement, warning, proposal, and manual
   follow-up in `ImportReportV1`.
 - Set `provenance.sourceUrl` in `site.json` whenever the source is reachable
-  at a URL. The app uses it to offer the exact copy instead.
+  at a URL. The app uses it to offer visual capture instead.
 
 ### Workflow
 

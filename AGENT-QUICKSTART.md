@@ -1,28 +1,29 @@
 # Get a website into Snabbsite: one-paste agent prompt
 
-There are two ways in, and this is the whole story:
+There are two ways in when keeping the look matters:
 
-> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
-> because your own code still draws the page.**
-> **Already have a website? Give us the zip or the address and you get an
-> exact copy you can edit.**
+> **Building in Next.js? Use the SDK. Your code keeps drawing the page, and
+> the owner edits only the fields you expose.**
+> **Already have a website? Use the zip or address for best-effort visual
+> capture. Captured text, images and links are editable. Internal layout stays
+> fixed, and a typed rebuild is the fallback.**
 
-Both keep the look. The third route, the package lane, rebuilds the site on
+The third route, the package lane, rebuilds the site on
 Snabbsite's own blocks. That is a redesign, and an agent may only take it when
 you ask for a new design in those words.
 
 ## The five steps, for you
 
 1. **Pick the path.** You write the website in Next.js and keep deploying it:
-   the SDK. The website already exists as an address or a zip: the copy.
+   the SDK. The website already exists as an address or a zip: visual capture.
 2. **Connect it.** SDK: run `npx @snabbsajt/cli@latest init --agency` in your
-   repo. Copy: sign in to Snabbsite, open "Move your website" ("Flytta din
+   repo. Capture: sign in to Snabbsite, open "Move your website" ("Flytta din
    hemsida"), and paste the address or drop the zip. On an account that already
    has a site the same lane sits under Settings, Backup & move
    (Inställningar, Säkerhetskopia och flytt).
 3. **Say what the owner may change.** SDK: wrap each section in `defineBlock`,
-   one field per thing an owner would ring you about. Copy: nothing to mark,
-   because every text, image and link is already editable.
+   one field per thing an owner would ring you about. Capture: text, image and
+   link slots are editable. Internal captured layout stays fixed.
 4. **Hand it over.** SDK: `npx @snabbsajt/cli@latest push . --site <id>`.
    Copy: press the one button on the preview screen. Both make an unpublished
    draft, so nothing goes live yet.
@@ -68,7 +69,8 @@ Step 2. Connect it.
 Step 3. Say what I may change.
   A: wrap each section in `defineBlock`, one field per thing a client would
      ring me about. Name fields for what the CLIENT sees, never for the prop.
-  B: nothing to mark. Every text, image and link in the copy is editable.
+  B: text, image and link slots are editable. Internal captured layout stays
+     fixed.
 
 Step 4. Hand it over.
   A: npx @snabbsajt/cli@latest push . --site <id>
@@ -76,12 +78,11 @@ Step 4. Hand it over.
      only after I approve that report. A push writes the DRAFT only.
   B: I press the button on the preview screen. You do not press it for me.
 
-Step 5. Report the number honestly, and do not soften this line.
-  A is 100% BY DEFINITION, because my own code draws the page and Snabbsite
-    only holds the content.
-  B is MEASURED. The goal is 99.9% of the pixels, and the copy is a still
-    picture with no animations, because Snabbsite never runs a source's
-    JavaScript in a visitor's browser. Never write "100%" about the copy.
+Step 5. Report the result honestly.
+  A keeps my renderer, but only the fields I expose are editable.
+  B has no pixel percentage guarantee. Common fades, scroll reveals and smooth
+    scrolling can be recreated with Snabbsite code. Source JavaScript and
+    custom interactions do not move into the imported website.
 
 C. Only if I say, in my own words, "new design on Snabbsite blocks":
    Say this sentence in chat, word for word, and repeat it in the final
@@ -100,7 +101,7 @@ Rules (non-negotiable, all three lanes):
   package. Every region becomes a registered Snabbsite section type; report
   what you skip.
 - Set `provenance.sourceUrl` in `site.json` whenever the source has an
-  address, so the app can offer me the exact copy instead.
+  address, so the app can offer me the visual capture path instead.
 ```
 
 ---
@@ -110,30 +111,26 @@ Rules (non-negotiable, all three lanes):
 | Your source | You want | Lane | The agent |
 | --- | --- | --- | --- |
 | Your own Next.js/React repo, you keep deploying it | the same look | `make-site-editable` | wraps your components in `defineBlock`, pushes content; your code still draws the site |
-| Live URL, static export, HTML zip | the same look | exact copy in the app | hands you the address and the click path; builds nothing |
+| Live URL, static export, HTML zip | the same look | best-effort visual capture in the app | hands you the address and the click path; builds nothing |
 | Any of the above | a new design on Snabbsite blocks | package (`import-website`) | converts, validates, packs, and says out loud that it will not look the same |
 
 Why the split exists: a package of typed sections is a rebuild. It keeps your
 words, images and facts, and it throws away your layout, fonts and colours in
 favour of Snabbsite's. The first time an agent shipped that as "your site,
-imported", the owner did not recognise his own website. The exact copy in the
-app and the SDK lane both keep the look because neither one redraws it.
+imported", the owner did not recognise his own website. Visual capture tries to
+keep the rendered look. The SDK lane keeps the look because it does not redraw
+the site.
 
-## The two numbers, and why they differ
+## What stays the same, and what can change
 
-**The SDK lane is 100%, by definition.** Your components render every pixel
-exactly as they do on your own deployment. Snabbsite stores the words and the
-pictures and gives your client an editor for them. There is nothing to measure
-because nothing was redrawn.
+**The SDK lane keeps your renderer.** Your components still draw the page.
+Snabbsite stores only the words and pictures you expose to the editor.
 
-**The copy lane is measured, not asserted.** We capture the page as it renders
-and rebuild it as editable blocks, then score the result against the original
-per section and per viewport. The goal is **99.9%** of the pixels. Runs on real
-customer sites so far have landed between roughly **98.5% and 99.5%**, so the
-gap is real and we say the number rather than rounding it up. The copy is also
-a **still picture**: it carries no animations, because Snabbsite never runs a
-source's JavaScript in a visitor's browser. Anyone writing "100%" about the
-copy lane is wrong.
+**Visual capture is best effort.** We capture the rendered page and expose its
+text, images and links. Internal section layout stays fixed. There is no pixel
+percentage guarantee. Common fades, scroll reveals and smooth scrolling can be
+recreated with Snabbsite code. Source JavaScript and custom interactions do not
+move into the imported or published website.
 
 ## Worked examples
 

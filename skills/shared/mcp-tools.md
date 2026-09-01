@@ -76,23 +76,24 @@ your changes from work that was already waiting.
 
 Every one of these writes the DRAFT. The live site does not change.
 
-**Before you reach for `import_site`, read the two ways in.** Both keep the
-look, and neither is a package:
+**Before you reach for `import_site`, read the two ways in.** Neither is a
+typed package:
 
-> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
-> because your own code still draws the page.**
-> **Already have a website? Give us the zip or the address and you get an
-> exact copy you can edit.**
+> **Building in Next.js? Use the SDK. Their own code keeps drawing the page,
+> and the owner edits only the fields they expose.**
+> **Already have a website? Use the address or zip for best-effort visual
+> capture. Text, images and links are editable. Captured layout stays fixed,
+> and a typed rebuild is the fallback.**
 
 So a human who writes the site themselves goes to the `make-site-editable`
 skill, not to a tool here. A human who already has a website goes to
 `migrate_site_from_url`, or to the app's own "Move your website" lane when
 they hold a zip rather than an address. `import_site` lands a package, which is
 a redesign on Snabbsite blocks, and it runs only when the human asks for a new
-design in those words. `migrate_site_from_url` keeps the look by default and
-its score is MEASURED, aiming at 99.9% of the pixels, with no animations
-because we never run a source's JavaScript in a visitor's browser. Never write
-"100%" about a captured copy.
+design in those words. `migrate_site_from_url` tries visual capture by default,
+with no percentage guarantee. It can recreate common fades, scroll reveals
+and smooth scrolling with Snabbsite code. Source JavaScript and custom
+interactions do not move into the imported or published website.
 
 \* `get_section_json`, `replace_section_content` and `set_section_layout`
 additionally need the workspace's advanced-editor (Labs) grant and fail closed

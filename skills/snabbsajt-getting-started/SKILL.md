@@ -27,34 +27,33 @@ Rule of thumb: **does the site exist yet?** No → package layer. Yes → MCP (o
 `admin`) layer.
 
 Second rule, and it comes first when the human already has a website
-somewhere else: **which lane keeps the look?** Both of these do, and this is
-the whole story, told the same way in the app, on the marketing page, in the
-SDK quickstart, in `import-website` and in the MCP tool descriptions:
+somewhere else: **which lane should preserve the design?**
 
-> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
-> because your own code still draws the page.**
-> **Already have a website? Give us the zip or the address and you get an
-> exact copy you can edit.**
+> **Building in Next.js? Use the SDK. Their own code keeps drawing the page,
+> and the owner edits only the fields they expose.**
+> **Already have a website? Use the zip or address for best-effort visual
+> capture. Captured text, images and links are editable. Internal layout stays
+> fixed, and a typed rebuild is the fallback.**
 
 The five steps are the same for the human and for you:
 
 1. **Pick the lane.** Ask exactly one question: "Do you write this website in
    Next.js and keep deploying it yourself?" Yes goes to `make-site-editable`.
-   No goes to the app's exact copy. Do not build a site package on either
+   No goes to the app's visual capture. Do not build a site package on either
    answer.
 2. **Connect it.** SDK lane: `snabbsajt init --agency` in their repo. Copy
    lane: build nothing and run nothing. Hand them the click path (onboarding,
    "Move your website" / "Flytta din hemsida", or Settings, Backup & move /
    Inställningar, Säkerhetskopia och flytt) and stop.
 3. **Say what the owner may change.** SDK lane: `defineBlock` per section, one
-   field per thing a client would ring about. Copy lane: nothing to mark.
+   field per thing a client would ring about. Capture lane: text, image and link
+   slots are editable. Internal captured layout stays fixed.
 4. **Hand it over.** SDK lane: `snabbsajt push . --site <id>`, `--dry-run`
    first. Copy lane: the human presses the button on the preview.
-5. **Report the number honestly.** The SDK lane is 100% by definition, because
-   their code draws the page. The copy lane is measured, aiming at 99.9% of
-   the pixels, and it is a still picture with no animations, because we never
-   run a source's JavaScript in a visitor's browser. Never write "100%" about
-   the copy.
+5. **Report the result honestly.** The SDK keeps the renderer, but only exposed
+   fields are editable. Visual capture has no percentage guarantee. Common
+   fades, scroll reveals and smooth scrolling can be recreated. Source scripts
+   and custom interactions do not move into the imported website.
 
 `import-website` is the THIRD lane, a redesign on Snabbsite blocks, and it
 runs only when the human asks for a new design in those words.
@@ -122,8 +121,8 @@ Scopes, tool catalogue, and the confirm handshake:
 
 | The human wants | Skill |
 | --- | --- |
-| their own Next.js/React site editable in Snabbsite, looking exactly as it does today | `make-site-editable` |
-| a live URL, static export or HTML zip in Snabbsite, looking exactly as it does today | no skill: the app's exact copy. Hand over the address and the click path above, then stop |
+| their own Next.js/React site editable in Snabbsite, keeping its own renderer | `make-site-editable`; only exposed fields become editable |
+| a live URL, static export or HTML zip in Snabbsite, with its current look | no skill: use the app's best-effort visual capture. Its internal layout stays fixed, and a typed rebuild is the fallback |
 | an existing website rebuilt on Snabbsite blocks (a new design; the human said so) | `import-website` |
 | a new site built from a brief, for a customer to edit | `build-snabbsajt-site` |
 | a package checked before anyone imports it | `review-site-package` |

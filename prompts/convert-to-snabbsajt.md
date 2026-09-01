@@ -1,7 +1,7 @@
 # Convert an existing website to a Snabbsite Site Kit package
 
 ```
-prompt-version: 2.1.0
+prompt-version: 2.2.0
 requires-cli: ">=0.3.0"        # snabbsajt --version must satisfy this
 portable-format: sajt-site@1
 report-contract: snabbsajt-import-report@1
@@ -20,12 +20,13 @@ package for them ships a site that looks nothing like the original.
 
 ## 0. Same look, or a new design? Decide this first
 
-There are two ways in, and both keep the look. This is the whole story:
+There are two ways in when keeping the look matters:
 
-> **Building in Next.js? Use the SDK, push once, and it is 100% identical,
-> because your own code still draws the page.**
-> **Already have a website? Give us the zip or the address and you get an
-> exact copy you can edit.**
+> **Building in Next.js? Use the SDK. Your own code keeps drawing the page,
+> while the owner edits the text and image fields you expose.**
+> **Already have a website? Give us the zip or address. We try to capture the
+> rendered look, with editable text, images and links. Captured layout stays
+> fixed, and a typed rebuild is the fallback.**
 
 The package workflow further down is neither of those. It is a redesign on
 Snabbsite blocks, and you take it only when the human asks for a new design in
@@ -34,14 +35,16 @@ those words.
 ### The five steps, for the human
 
 1. **Pick the path.** You write the site in Next.js and keep deploying it:
-   the SDK. The website already exists as an address or a zip: the copy.
+   the SDK. The website already exists as an address or a zip: visual capture.
 2. **Connect it.** SDK: run `npx @snabbsajt/cli@latest init --agency` in the
    repo. Copy: sign in to Snabbsite and open "Flytta din hemsida", which is
    "Move your website" in English and also sits under Settings → Backup &
-   move. Paste the address there, or drop the zip.
+   move. Paste the address there, or drop the zip. The preview reports whether
+   visual capture worked or the website used the typed rebuild.
 3. **Say what the owner may change.** SDK: wrap each section in
-   `defineBlock`, one field per thing an owner would ring you about. Copy:
-   nothing to mark, because every text, image and link is already editable.
+   `defineBlock`, one field per thing an owner would ring you about. Capture:
+   text, image, and link slots are editable. The layout inside each captured
+   section stays fixed.
 4. **Hand it over.** SDK: `npx @snabbsajt/cli@latest push . --site <id>`.
    Copy: press the one button on the preview screen. Both make an unpublished
    draft, so nothing goes live yet.
@@ -65,12 +68,11 @@ those words.
 4. SDK lane: run the push with `--dry-run` first, show the merge report, and
    push for real only after the human approves it. Copy lane: the human
    presses the button; you do not press it for them.
-5. Report the number honestly, and this is the line you may not soften. The
-   SDK lane is **100% by definition**, because the human's own code draws the
-   page and we only hold the content. The copy lane is **measured**: we aim
-   for 99.9% of pixels, and the copy is a still picture with no animations,
-   because we never run a source's JavaScript on a visitor's page. Never write
-   "100%" about the copy. Say what the SDK lane costs before they build: their
+5. Report the result honestly. The SDK keeps the human's renderer, but only the
+   fields they expose become editable. Visual capture has no pixel percentage
+   guarantee. Common fades, scroll reveals, and smooth scrolling can be
+   recreated with Snabbsite code. Source JavaScript and custom interactions do
+   not move into the imported or published website. Say what the SDK lane costs before they build: their
    own app serves the page, so bookings, the visitor assistant, visitor
    statistics, our prepublish checks and our sharing images are theirs to
    solve, while everything about the content keeps working, namely editing,
@@ -88,7 +90,7 @@ like the current site."** The deliverable in that case is **data, not code**:
 a `PortableSiteV1` `site.json` plus asset blobs, packed into a bundle zip
 that a human imports into Snabbsite. Nothing you produce executes on the
 customer site. Whenever the source has a public address, set
-`site.provenance.sourceUrl` to it; the app uses it to offer the exact copy.
+`site.provenance.sourceUrl` to it; the app uses it to offer visual capture.
 
 ## 0b. Preflight: fail loudly, do not improvise
 
