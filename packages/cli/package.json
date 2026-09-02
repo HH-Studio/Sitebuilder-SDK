@@ -1,6 +1,6 @@
 {
   "name": "@snabbsajt/cli",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Local-first command line tools for SnabbSajt site packages.",
   "license": "MIT",
   "type": "module",
@@ -29,7 +29,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@snabbsajt/site-kit": "^0.5.0"
+    "@snabbsajt/site-kit": "^0.5.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",

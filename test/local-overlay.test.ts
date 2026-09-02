@@ -1,9 +1,10 @@
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { blockLibrary, defineBlock } from "../src/lib/blocks/defineBlock";
 import { checkFieldValue, overlayRows } from "../src/lib/devlocal/fields";
+import { mountLocalOverlay as mountInlineOverlay } from "../src/lib/devlocal/inlineOverlay";
 import { mountLocalOverlay, OVERLAY_STATE_KEY } from "../src/lib/devlocal/overlay";
 import { createLocalContentHandler } from "../src/lib/devlocal/handler";
 import { applyContentEdit } from "../src/lib/devlocal/writeContent";
@@ -67,6 +68,7 @@ type FakeElement = ReturnType<typeof element>;
 function element(tag: string) {
   const listeners = new Map<string, Array<(event: unknown) => void>>();
   const node = {
+    _fakeElement: true,
     tag,
     children: [] as FakeElement[],
     attributes: {} as Record<string, string>,
@@ -84,12 +86,27 @@ function element(tag: string) {
       // Real `textContent = ""` drops every child. The panel redraws that way.
       if (next === "") node.children = [];
     },
+    get innerText() {
+      return node._text;
+    },
+    set innerText(next: string) {
+      node._text = next;
+    },
     setAttribute(name: string, value: string) {
       node.attributes[name] = value;
+    },
+    getAttribute(name: string) {
+      return node.attributes[name] ?? null;
+    },
+    removeAttribute(name: string) {
+      delete node.attributes[name];
     },
     appendChild(child: FakeElement) {
       node.children.push(child);
       return child;
+    },
+    append(...children: FakeElement[]) {
+      node.children.push(...children);
     },
     addEventListener(type: string, listener: (event: unknown) => void) {
       const list = listeners.get(type) ?? [];
@@ -104,8 +121,43 @@ function element(tag: string) {
     remove() {
       node.removed = true;
     },
+    focus() {},
+    blur() {
+      node.fire("blur");
+    },
+    closest(selector: string) {
+      if (
+        selector === "[data-snabbsite-toolbar]" &&
+        "data-snabbsite-toolbar" in node.attributes
+      ) {
+        return node;
+      }
+      if (
+        selector === "[data-sajt-section][data-sajt-field]" &&
+        "data-sajt-section" in node.attributes &&
+        "data-sajt-field" in node.attributes
+      ) {
+        return node;
+      }
+      if (
+        selector ===
+          "[data-sajt-section][data-sajt-field][contenteditable]" &&
+        "data-sajt-section" in node.attributes &&
+        "data-sajt-field" in node.attributes &&
+        "contenteditable" in node.attributes
+      ) {
+        return node;
+      }
+      return null;
+    },
+    getBoundingClientRect() {
+      return { left: 0, bottom: 20 };
+    },
     fire(type: string, event: unknown = {}) {
       for (const listener of [...(listeners.get(type) ?? [])]) listener(event);
+    },
+    listenerCount(type: string) {
+      return listeners.get(type)?.length ?? 0;
     },
     /** Every node under here, flattened, so a test can find one control. */
     all(): FakeElement[] {
@@ -123,6 +175,7 @@ function fakeDocument() {
   const listeners = new Map<string, Array<(event: unknown) => void>>();
   return {
     body,
+    documentElement: { clientWidth: 1024 },
     createElement: (tag: string) => element(tag),
     addEventListener(type: string, listener: (event: unknown) => void) {
       const list = listeners.get(type) ?? [];
@@ -136,6 +189,9 @@ function fakeDocument() {
     },
     fire(type: string, event: unknown) {
       for (const listener of [...(listeners.get(type) ?? [])]) listener(event);
+    },
+    querySelector() {
+      return null;
     },
     /** The overlay's own root, which is the only thing it appends to body. */
     overlay() {
@@ -187,8 +243,17 @@ async function settle(): Promise<void> {
 }
 
 const mounted: Array<{ destroy(): void }> = [];
+const originalNodeEnv = process.env.NODE_ENV;
+
+beforeEach(() => {
+  process.env.NODE_ENV = "development";
+});
+
 afterEach(() => {
   while (mounted.length) mounted.pop()?.destroy();
+  vi.unstubAllGlobals();
+  if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = originalNodeEnv;
 });
 
 function mount(dir: string, extra: Record<string, unknown> = {}) {
@@ -226,7 +291,8 @@ describe("the development-only boundary", () => {
   });
 
   it("answers a production request with the same 404 a missing route gives", async () => {
-    const handler = createLocalContentHandler({ library, enabled: false });
+    process.env.NODE_ENV = "production";
+    const handler = createLocalContentHandler({ library, enabled: true });
     const response = await handler(
       new Request("http://localhost:3000/__snabbsite/content", {
         method: "POST",
@@ -433,6 +499,108 @@ describe("selecting by click", () => {
   });
 });
 
+describe("inline text editing", () => {
+  it("does not restart an edit when its contenteditable field is clicked", async () => {
+    class FakeElementClass {
+      static [Symbol.hasInstance](value: unknown): boolean {
+        return Boolean(
+          value &&
+            typeof value === "object" &&
+            "_fakeElement" in value,
+        );
+      }
+    }
+    vi.stubGlobal("Element", FakeElementClass);
+    vi.stubGlobal("HTMLElement", FakeElementClass);
+
+    const doc = fakeDocument();
+    const target = element("h1");
+    target.setAttribute("data-sajt-section", "sec-1");
+    target.setAttribute("data-sajt-field", "heading");
+    target.innerText = "Före";
+    const request = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          blockType: "hero",
+          props: { heading: "Före" },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const handle = mountInlineOverlay({
+      library,
+      enabled: true,
+      document: doc as never,
+      fetch: request as never,
+    });
+    mounted.push(handle);
+
+    const click = () =>
+      doc.fire("click", {
+        target,
+        preventDefault() {},
+        stopPropagation() {},
+      });
+    click();
+    await settle();
+    click();
+    await settle();
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(target.listenerCount("blur")).toBe(1);
+    expect(target.attributes.contenteditable).toBe("plaintext-only");
+  });
+
+  it("cleans up an active edit when the overlay is destroyed", async () => {
+    class FakeElementClass {
+      static [Symbol.hasInstance](value: unknown): boolean {
+        return Boolean(
+          value &&
+            typeof value === "object" &&
+            "_fakeElement" in value,
+        );
+      }
+    }
+    vi.stubGlobal("Element", FakeElementClass);
+    vi.stubGlobal("HTMLElement", FakeElementClass);
+
+    const doc = fakeDocument();
+    const target = element("h1");
+    target.setAttribute("data-sajt-section", "sec-1");
+    target.setAttribute("data-sajt-field", "heading");
+    target.innerText = "Före";
+    const request = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          blockType: "hero",
+          props: { heading: "Före" },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const handle = mountInlineOverlay({
+      library,
+      enabled: true,
+      document: doc as never,
+      fetch: request as never,
+    });
+
+    doc.fire("click", {
+      target,
+      preventDefault() {},
+      stopPropagation() {},
+    });
+    await settle();
+    target.innerText = "Osparad";
+    handle.destroy();
+
+    expect(target.innerText).toBe("Före");
+    expect(target.attributes.contenteditable).toBeUndefined();
+    expect(target.listenerCount("blur")).toBe(0);
+    expect(target.listenerCount("keydown")).toBe(0);
+  });
+});
+
 // ── step 4: an edit lands in the file ──────────────────────────────────────
 
 describe("writing an edit into the developer's own file", () => {
@@ -480,6 +648,44 @@ describe("writing an edit into the developer's own file", () => {
       body: "<p>Ny text</p>",
       cover: { assetId: "asset-9", alt: "En bild" },
       cta: { href: "/kontakt", label: "Kontakta oss" },
+      tone: "dark",
+      compact: true,
+    });
+  });
+
+  it("keeps concurrent edits to different fields in the same page", async () => {
+    const dir = await contentDir();
+    const [heading, tone, compact] = await Promise.all([
+      applyContentEdit({
+        sectionId: "sec-1",
+        key: "heading",
+        value: "Ny rubrik",
+        library,
+        dir,
+      }),
+      applyContentEdit({
+        sectionId: "sec-1",
+        key: "tone",
+        value: "dark",
+        library,
+        dir,
+      }),
+      applyContentEdit({
+        sectionId: "sec-1",
+        key: "compact",
+        value: true,
+        library,
+        dir,
+      }),
+    ]);
+
+    expect([heading, tone, compact]).toEqual([
+      expect.objectContaining({ ok: true }),
+      expect.objectContaining({ ok: true }),
+      expect.objectContaining({ ok: true }),
+    ]);
+    expect((await pageOnDisk(dir)).sections[0].content.props).toMatchObject({
+      heading: "Ny rubrik",
       tone: "dark",
       compact: true,
     });

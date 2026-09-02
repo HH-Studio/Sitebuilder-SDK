@@ -12,6 +12,8 @@ that validated against an older CLI still validates against a newer one.
 
 ## [Unreleased]
 
+## [0.5.1] (2026-09-03)
+
 ### Fixed
 
 - **Complete agency pages can declare up to 64 editable fields.** The SDK now

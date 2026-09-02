@@ -70,8 +70,10 @@ export function mountLocalOverlay(
   const endpoint = options.endpoint ?? LOCAL_CONTENT_PATH;
   let toolbar: HTMLDivElement | undefined;
   let status: HTMLDivElement | undefined;
+  let activeTextEdit: HTMLElement | undefined;
+  let cancelActiveTextEdit: (() => void) | undefined;
   let loadSequence = 0;
-  const saveSequence = new Map<string, number>();
+  let saveQueue: Promise<void> = Promise.resolve();
 
   const removeToolbar = (): void => {
     toolbar?.remove();
@@ -133,31 +135,34 @@ export function mountLocalOverlay(
     const checked = checkFieldValue(field, value);
     if (!checked.ok) return { ok: false, reason: checked.reason };
 
-    const key = `${section.sectionId}:${field.key}`;
-    const sequence = (saveSequence.get(key) ?? 0) + 1;
-    saveSequence.set(key, sequence);
-    try {
-      const response = await request(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          sectionId: section.sectionId,
-          key: field.key,
-          value: checked.value,
-        }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as {
-        reason?: string;
-      };
-      if (saveSequence.get(key) !== sequence) return { ok: true };
-      if (!response.ok) {
-        return { ok: false, reason: payload.reason ?? "Could not save." };
+    const result = saveQueue.then(async (): Promise<SaveResult> => {
+      try {
+        const response = await request(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            sectionId: section.sectionId,
+            key: field.key,
+            value: checked.value,
+          }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          reason?: string;
+        };
+        if (!response.ok) {
+          return { ok: false, reason: payload.reason ?? "Could not save." };
+        }
+        section.props = { ...section.props, [field.key]: checked.value };
+        return { ok: true };
+      } catch {
+        return { ok: false, reason: "No answer from the dev server." };
       }
-      section.props = { ...section.props, [field.key]: checked.value };
-      return { ok: true };
-    } catch {
-      return { ok: false, reason: "No answer from the dev server." };
-    }
+    });
+    saveQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   };
 
   const beginTextEdit = (
@@ -165,6 +170,9 @@ export function mountLocalOverlay(
     section: SectionState,
     field: BlockField,
   ): void => {
+    if (activeTextEdit === target) return;
+    activeTextEdit?.blur();
+    activeTextEdit = target;
     removeToolbar();
     const before = target.innerText;
     let cancelled = false;
@@ -175,7 +183,7 @@ export function mountLocalOverlay(
     target.style.outlineOffset = "5px";
     target.focus();
 
-    const finish = async (): Promise<void> => {
+    const cleanUp = (): void => {
       target.removeEventListener("blur", onBlur);
       target.removeEventListener("keydown", onKeyDown);
       target.removeAttribute("contenteditable");
@@ -183,6 +191,18 @@ export function mountLocalOverlay(
       target.removeAttribute("aria-label");
       target.style.outline = "";
       target.style.outlineOffset = "";
+      if (activeTextEdit === target) activeTextEdit = undefined;
+      if (cancelActiveTextEdit === cancel) cancelActiveTextEdit = undefined;
+    };
+    const cancel = (): void => {
+      cancelled = true;
+      cleanUp();
+      target.innerText = before;
+    };
+    cancelActiveTextEdit = cancel;
+
+    const finish = async (): Promise<void> => {
+      cleanUp();
       if (cancelled) {
         target.innerText = before;
         return;
@@ -345,13 +365,21 @@ export function mountLocalOverlay(
         cursor: "pointer",
       });
       toggle.addEventListener("click", async () => {
-        const result = await save(section, visibleField, !visible);
-        if (!result.ok) showStatus(target, result.reason, true);
-        else {
-          showStatus(target, visible ? "Button removed" : "Button added");
-          visible = !visible;
-          toggle.textContent = visible ? "Remove" : "Add";
-          toggle.style.color = visible ? "#8f1d1d" : "#18221c";
+        const previous = visible;
+        const next = !previous;
+        visible = next;
+        toggle.textContent = visible ? "Remove" : "Add";
+        toggle.style.color = visible ? "#8f1d1d" : "#18221c";
+        const result = await save(section, visibleField, next);
+        if (!result.ok) {
+          if (visible === next) {
+            visible = previous;
+            toggle.textContent = visible ? "Remove" : "Add";
+            toggle.style.color = visible ? "#8f1d1d" : "#18221c";
+          }
+          showStatus(target, result.reason, true);
+        } else {
+          showStatus(target, next ? "Button added" : "Button removed");
         }
       });
       node.append(buttonText, link, toggle);
@@ -440,6 +468,13 @@ export function mountLocalOverlay(
     const rawTarget = event.target;
     if (!(rawTarget instanceof Element)) return;
     if (rawTarget.closest("[data-snabbsite-toolbar]")) return;
+    if (
+      rawTarget.closest(
+        "[data-sajt-section][data-sajt-field][contenteditable]",
+      )
+    ) {
+      return;
+    }
     const ref = fieldRefFromEventTarget(rawTarget);
     if (!ref) {
       removeToolbar();
@@ -476,6 +511,7 @@ export function mountLocalOverlay(
     destroy() {
       doc.removeEventListener("click", onClick);
       doc.removeEventListener("keydown", onKeyDown);
+      cancelActiveTextEdit?.();
       removeToolbar();
       status?.remove();
     },

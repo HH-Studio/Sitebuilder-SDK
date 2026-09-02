@@ -11,9 +11,9 @@ SnabbSajt's typed sections, validate it locally, and pack it as a safe bundle.
 
 | | Version |
 | --- | --- |
-| **Site Kit published on npm** | **`0.5.0`** |
-| **CLI published on npm** | **`0.4.1`** |
-| This source tree | `0.5.0` |
+| **Site Kit published on npm** | **`0.5.1`** |
+| **CLI published on npm** | **`0.5.1`** |
+| This source tree | `0.5.1` |
 
 The package format, validator, HTML/WordPress converters, CLI, skills, and
 bundle format match the production SnabbSajt importer.
@@ -36,8 +36,8 @@ from Site Kit:
 - **No hand-written order keys.** Section `order` is optional — omit it and the
   importer orders by array position.
 
-Site Kit `0.5.0` and CLI `0.4.1` are published. The current source tree is
-`0.5.0`.
+Site Kit `0.5.1` and CLI `0.5.1` are published. The current source tree is
+`0.5.1`.
 
 Two things about that release are worth knowing if you hit them: for about
 seven hours on release day `@snabbsajt/cli@0.4.0` was live against a still-`0.3.0`

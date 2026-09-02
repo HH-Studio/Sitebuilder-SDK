@@ -21,7 +21,8 @@
 // the file is defended here rather than in the panel.
 // ---------------------------------------------------------------------------
 
-import { readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { BlockLibrary } from "../blocks/defineBlock";
 import { checkFieldValue, fieldFor } from "./fields";
@@ -63,6 +64,23 @@ type PageFile = {
     }>;
   };
 };
+
+const fileWriteQueues = new Map<string, Promise<void>>();
+
+/** Keep edits to one page ordered while unrelated page files remain independent. */
+function serializeFileWrite<T>(path: string, write: () => Promise<T>): Promise<T> {
+  const previous = fileWriteQueues.get(path) ?? Promise.resolve();
+  const result = previous.catch(() => undefined).then(write);
+  const tail = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  fileWriteQueues.set(path, tail);
+  void tail.then(() => {
+    if (fileWriteQueues.get(path) === tail) fileWriteQueues.delete(path);
+  });
+  return result;
+}
 
 /** Read every page in the directory. A directory that has never been pulled has
  *  no pages, which is an empty list rather than a crash. Same choice the
@@ -113,41 +131,80 @@ export async function applyContentEdit(
     );
     if (!section) continue;
 
-    const content = section.content;
-    if (section.type !== "block" || content?.type !== "block") {
+    return serializeFileWrite(file.path, async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        let raw: string;
+        let page: PageFile["page"];
+        try {
+          raw = await readFile(file.path, "utf8");
+          page = JSON.parse(raw);
+        } catch {
+          return {
+            ok: false,
+            reason: `No page holds a section called "${sectionId}".`,
+          };
+        }
+
+        const currentSection = page.sections?.find(
+          (candidate) => candidate?.id === sectionId,
+        );
+        if (!currentSection) {
+          return {
+            ok: false,
+            reason: `No page holds a section called "${sectionId}".`,
+          };
+        }
+
+        const content = currentSection.content;
+        if (currentSection.type !== "block" || content?.type !== "block") {
+          return {
+            ok: false,
+            reason: `Section "${sectionId}" is not one of your blocks.`,
+          };
+        }
+        const blockType = content.blockType;
+        if (typeof blockType !== "string") {
+          return { ok: false, reason: `Section "${sectionId}" names no block.` };
+        }
+        const definition = library[blockType];
+        if (!definition) {
+          return {
+            ok: false,
+            reason: `No block called "${blockType}" is declared in this repository.`,
+          };
+        }
+        const field = fieldFor(definition, key);
+        if (!field) {
+          return {
+            ok: false,
+            reason: `Block "${blockType}" declares no "${key}".`,
+          };
+        }
+
+        const checked = checkFieldValue(field, value);
+        if (!checked.ok) return { ok: false, reason: checked.reason };
+
+        content.props = { ...(content.props ?? {}), [key]: checked.value };
+
+        const temp = `${file.path}.${process.pid}.${randomUUID()}.tmp`;
+        try {
+          // Two spaces and a trailing newline: the shape `snabbsajt pull` writes,
+          // so an overlay edit reads as one changed line in `git diff` rather
+          // than a reformat of the whole page.
+          await writeFile(temp, `${JSON.stringify(page, null, 2)}\n`, "utf8");
+          if ((await readFile(file.path, "utf8")) !== raw) continue;
+          await rename(temp, file.path);
+          return { ok: true, file: file.path, blockType };
+        } finally {
+          await unlink(temp).catch(() => undefined);
+        }
+      }
+
       return {
         ok: false,
-        reason: `Section "${sectionId}" is not one of your blocks.`,
+        reason: "The page changed while saving. Try the edit again.",
       };
-    }
-    const blockType = content.blockType;
-    if (typeof blockType !== "string") {
-      return { ok: false, reason: `Section "${sectionId}" names no block.` };
-    }
-    const definition = library[blockType];
-    if (!definition) {
-      return {
-        ok: false,
-        reason: `No block called "${blockType}" is declared in this repository.`,
-      };
-    }
-    const field = fieldFor(definition, key);
-    if (!field) {
-      return { ok: false, reason: `Block "${blockType}" declares no "${key}".` };
-    }
-
-    const checked = checkFieldValue(field, value);
-    if (!checked.ok) return { ok: false, reason: checked.reason };
-
-    content.props = { ...(content.props ?? {}), [key]: checked.value };
-
-    const temp = `${file.path}.${process.pid}.tmp`;
-    // Two spaces and a trailing newline: the shape `snabbsajt pull` writes, so
-    // an overlay edit reads as one changed line in `git diff` rather than a
-    // reformat of the whole page.
-    await writeFile(temp, `${JSON.stringify(file.page, null, 2)}\n`, "utf8");
-    await rename(temp, file.path);
-    return { ok: true, file: file.path, blockType };
+    });
   }
 
   return { ok: false, reason: `No page holds a section called "${sectionId}".` };
