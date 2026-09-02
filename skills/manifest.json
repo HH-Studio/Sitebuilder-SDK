@@ -17,7 +17,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "25b4ce63ecc41ef1df313c6d9c09544fa6134085349180d2a4a4a0080846f46f"
+          "sha256": "28152faaf35de485b63b6e2266fa3ea6393e79026da8f57b23298627c0e12f34"
         },
         {
           "path": "references/cli-commands.md",
@@ -27,7 +27,7 @@
         {
           "path": "references/mcp-tools.md",
           "source": "shared/mcp-tools.md",
-          "sha256": "9b7c1784b4d92429afbf49c0451c6a41f996f8f213187d3595b0b725807e7094"
+          "sha256": "85fd08227f0493efafdb1d214c51e8ce37827431859a5bd3ba2c6859ae054486"
         }
       ]
     },
@@ -37,12 +37,12 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "c8794394a9fc744fc6845b581de9c6b140a50ede23f67691824530a97526e16b"
+          "sha256": "76a715b82477cc93ca47a4a5d7debd7967f24a74b3a6d8d475e0ea160402951d"
         },
         {
           "path": "references/import-mapping-rules.md",
           "source": "shared/import-mapping-rules.md",
-          "sha256": "0f26eb9b0462016b45ac8ad08fdf24ba8f6ad45ad8d5d118cb82e6fa6e2a2ccd"
+          "sha256": "e7cff843974e831e27f1c76e2dd70d6c47f658aec900cf04384b891351fdfef8"
         },
         {
           "path": "references/cli-commands.md",
@@ -52,7 +52,7 @@
         {
           "path": "references/section-schema.md",
           "source": "shared/section-schema.md",
-          "sha256": "f37abe133e544a78a93c0390d7e34323a34921e418d4f90368d44f002c82d8d3"
+          "sha256": "f86c962ebf3407ec3db2aa89a94feb74b081fc0a31d4b23bc5d8e48ef3cd420c"
         }
       ]
     },
@@ -72,7 +72,7 @@
         {
           "path": "references/section-schema.md",
           "source": "shared/section-schema.md",
-          "sha256": "f37abe133e544a78a93c0390d7e34323a34921e418d4f90368d44f002c82d8d3"
+          "sha256": "f86c962ebf3407ec3db2aa89a94feb74b081fc0a31d4b23bc5d8e48ef3cd420c"
         }
       ]
     },
@@ -92,7 +92,7 @@
         {
           "path": "references/section-schema.md",
           "source": "shared/section-schema.md",
-          "sha256": "f37abe133e544a78a93c0390d7e34323a34921e418d4f90368d44f002c82d8d3"
+          "sha256": "f86c962ebf3407ec3db2aa89a94feb74b081fc0a31d4b23bc5d8e48ef3cd420c"
         }
       ]
     },
@@ -107,7 +107,7 @@
         {
           "path": "references/mcp-tools.md",
           "source": "shared/mcp-tools.md",
-          "sha256": "9b7c1784b4d92429afbf49c0451c6a41f996f8f213187d3595b0b725807e7094"
+          "sha256": "85fd08227f0493efafdb1d214c51e8ce37827431859a5bd3ba2c6859ae054486"
         }
       ]
     },
@@ -117,7 +117,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "345f48dfbf7239faa2fa7ef2bd93f6a731c4a9b5d46d0a325447fdca50469677"
+          "sha256": "aaa9aff0fb763e2f5e3116125608afaf66bf32bf7b451636738c6c5339a76eca"
         },
         {
           "path": "references/cli-commands.md",
@@ -127,7 +127,7 @@
         {
           "path": "references/mcp-tools.md",
           "source": "shared/mcp-tools.md",
-          "sha256": "9b7c1784b4d92429afbf49c0451c6a41f996f8f213187d3595b0b725807e7094"
+          "sha256": "85fd08227f0493efafdb1d214c51e8ce37827431859a5bd3ba2c6859ae054486"
         }
       ]
     }
